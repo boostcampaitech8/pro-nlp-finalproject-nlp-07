@@ -1,0 +1,55 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyi
+
+# Virtual environments
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Package/Distribution
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment variables
+.env
+.env.local
+
+# Database
+*.db
+chat.db
+*.sqlite
+*.sqlite3
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Logs
+*.log
+
+# Project specific
+unsloth_compiled_cache/
+
+# macOS
+.DS_Store
+
+# Type checking
+.mypy_cache/
+.pytype/
