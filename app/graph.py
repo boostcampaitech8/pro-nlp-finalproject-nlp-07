@@ -63,19 +63,34 @@ def build_graph(store, router_client, coach_client, persona_client, supervisor_c
         meta["_trace"] = []  # turn마다 초기화
 
         req = s.get("req_meta") or {}
-        missing = [k for k in ("persona_name", "difficulty", "role_description") if k not in req]
+
+        # persona cfg resolution:
+        # - request(req_meta) fields have priority if provided
+        # - otherwise fallback to stored cfg in Redis state (from session start or previous turns)
+        stored_cfg = (st.get("persona") or {}).get("cfg") if isinstance(st.get("persona"), dict) else None
+
+        def _pick(key: str, default=None):
+            if key in req and req.get(key) is not None:
+                return req.get(key)
+            if isinstance(stored_cfg, dict) and stored_cfg.get(key) is not None:
+                return stored_cfg.get(key)
+            return default
+
+        persona_name = _pick("persona_name")
+        role_description = _pick("role_description")
+        difficulty = _pick("difficulty")
+
+        missing = [k for k, v in (("persona_name", persona_name), ("role_description", role_description), ("difficulty", difficulty)) if v is None]
         if missing:
-            raise ValueError(f"Missing required persona fields: {missing}")
+            raise ValueError(f"Missing required persona fields (request or stored): {missing}")
 
-        # cfg는 매 요청(req_meta) 기준으로 강제 (Redis cfg 무시)
         cfg = PersonaConfig(
-            persona_name=req["persona_name"],
-            role_description=req["role_description"],
-            difficulty=int(req["difficulty"]),
-            style_notes=req.get("style_notes") or "한국어로 자연스럽고 간결하게.",
-            rules=req.get("rules") or [],
+            persona_name=str(persona_name),
+            role_description=str(role_description),
+            difficulty=int(difficulty),
+            style_notes=_pick("style_notes", "한국어로 자연스럽고 간결하게."),
+            rules=_pick("rules", []) or [],
         )
-
         persona_state = st.get("persona") or {}
         persona_sess = session_from_state(
             client=persona_client,
@@ -185,7 +200,7 @@ def build_graph(store, router_client, coach_client, persona_client, supervisor_c
                 pass
 
             hint = persona_block.get("hint") or "상대역으로만 답하고, 설정/톤을 유지해 다시 말해."
-            text = await asyncio.to_thread(lambda: persona_sess.respond(s["user_text"], system_hint=hint))
+            text = await asyncio.to_thread(persona_sess.respond, s["user_text"], hint)
             s["persona_text"] = text
 
             rerun_executed["persona"] = True

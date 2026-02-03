@@ -15,21 +15,26 @@ def cfg_from_dict(d: Dict[str, Any]) -> PersonaConfig:
 
 
 def session_to_state(session: PersonaSession) -> dict:
-    # cfg는 저장하지 않거나, 저장해도 "참고용"으로만(권장: 저장 안 함)
+    # cfg도 저장해야 /chat/start 이후 /chat/message에서 persona 필드 없이 진행 가능
     return {
-        # "cfg": session.cfg.to_dict(),  # <- 권장: 제거
+        "cfg": cfg_to_dict(session.cfg),
         "transcript": session.transcript,
         "memory_summary": session.memory_summary,
     }
 
 
+def session_from_state(client, persona_state: dict, fallback_cfg: PersonaConfig):
+    """
+    Redis에 cfg가 있으면 그걸 사용하고,
+    없으면 fallback_cfg를 사용한다.
+    """
+    stored_cfg = persona_state.get("cfg") if isinstance(persona_state, dict) else None
+    if isinstance(stored_cfg, dict) and stored_cfg.get("persona_name") and stored_cfg.get("role_description"):
+        cfg = cfg_from_dict(stored_cfg)
+    else:
+        cfg = fallback_cfg
 
-
-def session_from_state(client, persona_state: dict, fallback_cfg):
-    # cfg는 항상 fallback_cfg만 사용 (Redis cfg 무시)
-    session = PersonaSession(client=client, cfg=fallback_cfg)
-
-    session.transcript = (persona_state.get("transcript") or [])
-    session.memory_summary = (persona_state.get("memory_summary") or "")
+    session = PersonaSession(client=client, cfg=cfg)
+    session.transcript = (persona_state.get("transcript") or []) if isinstance(persona_state, dict) else []
+    session.memory_summary = (persona_state.get("memory_summary") or "") if isinstance(persona_state, dict) else ""
     return session
-

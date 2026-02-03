@@ -45,16 +45,10 @@ CLOVASTUDIO_ROUTER_ID = os.getenv("CLOVASTUDIO_ROUTER_ID", "").strip()
 CLOVASTUDIO_ROUTER_VERSION = os.getenv("CLOVASTUDIO_ROUTER_VERSION", "1").strip()
 
 # ---------- Store 초기화 ----------
-store = MemoryStateStore()
-
-if STATE_STORE == "redis":
-    try:
-        from redis.asyncio import Redis
-        redis = Redis.from_url(REDIS_URL, decode_responses=True)
-        store = RedisStateStore(redis)
-    except Exception as e:
-        print(f"[WARN] Redis init failed -> fallback to MemoryStateStore. err={e}")
-        store = MemoryStateStore()
+from redis.asyncio import Redis
+REDIS_URL='redis://localhost:6379/0'
+redis = Redis.from_url(REDIS_URL, decode_responses=True)
+store = RedisStateStore(redis)
 
 # ---------- Clova Persona client ----------
 persona_client = None
@@ -200,12 +194,29 @@ class ChatRequest(BaseModel):
     end_session: bool = False
 
     # supervisor 검수 사용 여부 (기본: off)
-    use_supervisor: bool = True
+    use_supervisor: bool = False
 
     # 추가: 그래프 raw 결과를 응답에 포함할지
     debug_graph_out: bool = False
 
 
+
+
+class StartRequest(BaseModel):
+    """세션 시작: 사용자에게서 '상황(파라미터)'을 받고, 페르소나가 먼저 첫 발화를 생성한다."""
+    session_id: Optional[str] = None
+    template_id: Optional[int] = None
+    persona_name: str
+    role_description: str
+    difficulty: int = Field(default=2, ge=1, le=5)
+    style_notes: Optional[str] = None
+    rules: Optional[list[str]] = None
+
+    # supervisor 검수 사용 여부 (세션 기본값)
+    use_supervisor: bool = False
+
+    # 첫 발화 생성에 추가로 주고 싶은 힌트/상황(선택)
+    opening_hint: Optional[str] = None
 class FeedbackRequest(BaseModel):
     """웹에서 '대화 종료'를 눌렀을 때 호출 (세션 전체 기반 피드백)."""
     session_id: str
@@ -293,6 +304,60 @@ async def persona_message(req: PersonaRequest) -> Dict[str, Any]:
 
 
 # ---------- LangGraph endpoint ----------
+
+
+@app.post("/chat/start")
+async def chat_start(req: StartRequest):
+    """
+    세션을 시작한다.
+    - user_text 없이 persona_name/role_description/difficulty/style/rules 등 '상황 파라미터'만 받는다.
+    - 페르소나가 먼저 첫 발화를 생성해서 반환한다.
+    - Redis에 cfg + transcript(assistant 1턴) 저장한다.
+    """
+    session_id = req.session_id or str(uuid.uuid4())
+
+    # build cfg for persona session
+    cfg = {
+        "persona_name": req.persona_name,
+        "role_description": req.role_description,
+        "difficulty": int(req.difficulty),
+        "style_notes": req.style_notes or "한국어로 자연스럽고 간결하게.",
+        "rules": req.rules or [],
+    }
+
+    # load existing state or new
+    st = await store.load(session_id)
+    st.setdefault("meta", {})
+    st.setdefault("persona", {})
+    st["session_id"] = session_id
+
+    # create persona session from empty/stored state and overwrite cfg
+    persona_state = st.get("persona") or {}
+    persona_sess = session_from_state(
+        client=persona_client,
+        persona_state=persona_state,
+        fallback_cfg=PersonaConfig(**cfg),
+    )
+    persona_sess.cfg = PersonaConfig(**cfg)
+
+    # persona speaks first
+    opening_text = await asyncio.to_thread(lambda: persona_sess.open(system_hint=req.opening_hint))
+
+    # update state (do not increment turn; this is pre-turn)
+    st["persona"] = session_to_state(persona_sess)
+    st["meta"]["turn"] = int(st["meta"].get("turn", 0))  # keep as-is
+    st["meta"]["last_user_text"] = ""
+    st["meta"]["last_persona_text"] = opening_text
+    st["meta"]["use_supervisor_default"] = bool(req.use_supervisor)
+
+    await store.save(session_id, st)
+
+    return {
+        "session_id": session_id,
+        "persona": {"text": opening_text},
+        "debug": {"turn": st["meta"].get("turn", 0), "started": True} if getattr(req, "template_id", None) is not None else {"started": True},
+    }
+    
 @app.post("/chat/message")
 async def chat_message(req: ChatRequest, debug: bool = Query(default=False)) -> Dict[str, Any]:
     if graph is None:
@@ -302,22 +367,67 @@ async def chat_message(req: ChatRequest, debug: bool = Query(default=False)) -> 
 
     session_id = req.session_id or str(uuid.uuid4())
 
-    fields = resolve_persona_fields(
-        template_id=req.template_id,
-        persona_name=req.persona_name,
-        role_description=req.role_description,
-        difficulty=req.difficulty,
-        style_notes=req.style_notes,
-        rules=req.rules,
-    )
+    # 0) 먼저 저장된 상태 로드 (start에서 cfg 저장해두었으므로 여기서 보완)
+    st = await store.load(session_id)
+    st = st or {}
+    persona_state = st.get("persona") or {}
+    stored_cfg = persona_state.get("cfg") or {}
+    meta = st.get("meta") or {}
 
-    req_meta = {
-        "persona_name": fields["persona_name"],
-        "role_description": fields["role_description"],
-        "difficulty": int(fields["difficulty"]),
-        "style_notes": fields["style_notes"],
-        "rules": fields["rules"],
-        "template_id": req.template_id,
+    # 1) 세션 기본 supervisor 설정(start에서 저장했으면) 적용
+    #    - request에 명시하면 그 값을 우선
+    if req.use_supervisor is False and bool(meta.get("use_supervisor_default")):
+        # 프론트가 use_supervisor를 명시적으로 false로 내린 게 아니라
+        # 기본값(false) 그대로 온 경우에만 세션 기본값을 적용
+        req.use_supervisor = True
+
+    # 2) persona 필드 병합 우선순위:
+    #    request 명시값 > template_id > stored_cfg
+    #    (stored_cfg가 없으면 template/request로 반드시 채워야 함)
+    merged: Dict[str, Any] = {}
+
+    # 2-1) stored_cfg 먼저
+    if isinstance(stored_cfg, dict):
+        merged.update(stored_cfg)
+
+    # 2-2) template 적용(있으면 덮어쓰기)
+    if req.template_id is not None and req.template_id in TEMPLATES:
+        merged.update(TEMPLATES[req.template_id])
+
+    # 2-3) request 값으로 최종 덮어쓰기
+    if req.persona_name is not None:
+        merged["persona_name"] = req.persona_name
+    if req.role_description is not None:
+        merged["role_description"] = req.role_description
+    if req.difficulty is not None:
+        merged["difficulty"] = int(req.difficulty)
+    if req.style_notes is not None:
+        merged["style_notes"] = req.style_notes
+    if req.rules is not None:
+        merged["rules"] = req.rules
+
+    # 3) 필수값 최종 검증
+    missing = [k for k in ("persona_name", "role_description") if not merged.get(k)]
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Missing required persona fields: {missing}. Provide them, or call /chat/start first, or set template_id=1|2.",
+        )
+
+    # 4) 기본값/범위 보정
+    merged["difficulty"] = int(merged.get("difficulty") or 2)
+    merged["difficulty"] = max(1, min(5, merged["difficulty"]))
+    merged["style_notes"] = merged.get("style_notes") or "한국어로 자연스럽고 간결하게."
+    merged["rules"] = merged.get("rules") or []
+
+    # 5) graph에 전달할 req_meta 구성
+    #    - 그래프에서 load_state가 stored cfg를 쓰더라도, 여기서 merged를 넘기면 더 안정적
+    req_meta: Dict[str, Any] = {
+        "persona_name": merged["persona_name"],
+        "role_description": merged["role_description"],
+        "difficulty": int(merged["difficulty"]),
+        "style_notes": merged["style_notes"],
+        "rules": merged["rules"],
         "use_supervisor": bool(req.use_supervisor),
     }
 
@@ -327,7 +437,7 @@ async def chat_message(req: ChatRequest, debug: bool = Query(default=False)) -> 
         "req_meta": req_meta,
     }) or {}
 
-    # ---- 1) 먼저 out에서 파생되는 값들을 전부 계산 (정의 순서 중요) ----
+    # ---- 1) out에서 파생되는 값들 ----
     coach_out = out.get("coach_out") or out.get("coach") or {}
     supervisor_out = out.get("supervisor_out") or out.get("supervisor") or {}
 
@@ -337,17 +447,17 @@ async def chat_message(req: ChatRequest, debug: bool = Query(default=False)) -> 
         persona_text = ((out.get("persona") or {}) if isinstance(out.get("persona"), dict) else {}).get("text") or ""
 
     if not persona_text:
-        st = out.get("state") or {}
-        if isinstance(st, dict):
-            persona_state = st.get("persona") or {}
-            if isinstance(persona_state, dict):
-                transcript = persona_state.get("transcript") or []
+        st2 = out.get("state") or {}
+        if isinstance(st2, dict):
+            persona_state2 = st2.get("persona") or {}
+            if isinstance(persona_state2, dict):
+                transcript = persona_state2.get("transcript") or []
                 if isinstance(transcript, list) and transcript:
                     last = transcript[-1]
                     if isinstance(last, dict) and last.get("role") == "assistant":
                         persona_text = last.get("content", "") or ""
 
-    # ---- 2) 그 다음 resp 구성 ----
+    # ---- 2) 응답 구성 ----
     resp: Dict[str, Any] = {
         "session_id": session_id,
         "coach": coach_out,
@@ -358,36 +468,36 @@ async def chat_message(req: ChatRequest, debug: bool = Query(default=False)) -> 
     # --- end-of-session feedback (optional) ---
     if bool(req.end_session):
         # load the latest persisted state (graph saved already)
-        st = await store.load(session_id)
-        persona_state = (st.get("persona") or {}) if isinstance(st, dict) else {}
-        persona_cfg = (persona_state.get("cfg") or {}) if isinstance(persona_state, dict) else {}
-        transcript = (persona_state.get("transcript") or []) if isinstance(persona_state, dict) else []
-        meta = (st.get("meta") or {}) if isinstance(st, dict) else {}
-        coach_history = meta.get("coach_history") if isinstance(meta, dict) else None
+        st_latest = await store.load(session_id)
+        persona_state_latest = (st_latest.get("persona") or {}) if isinstance(st_latest, dict) else {}
+        persona_cfg = (persona_state_latest.get("cfg") or {}) if isinstance(persona_state_latest, dict) else {}
+        transcript_latest = (persona_state_latest.get("transcript") or []) if isinstance(persona_state_latest, dict) else []
+        meta_latest = (st_latest.get("meta") or {}) if isinstance(st_latest, dict) else {}
+        coach_history = meta_latest.get("coach_history") if isinstance(meta_latest, dict) else None
 
         feedback = await asyncio.to_thread(
             call_final_feedback_clova,
             persona_client,
-            persona_cfg,
-            transcript,
+            persona_cfg or {},
+            transcript_latest,
             coach_history,
             None,
         )
         resp["final_feedback"] = feedback
 
-    # ---- 3) debug 출력 (절대 coach_out/resp 정의 전에 쓰지 않기) ----
+    # ---- 3) debug 출력 ----
     if debug:
-        st = out.get("state") or {}
-        meta = st.get("meta") if isinstance(st, dict) else None
-        persona_state = (st.get("persona") or {}) if isinstance(st, dict) else {}
-        transcript = persona_state.get("transcript") or []
+        st_dbg = out.get("state") or {}
+        meta_dbg = st_dbg.get("meta") if isinstance(st_dbg, dict) else None
+        persona_state_dbg = (st_dbg.get("persona") or {}) if isinstance(st_dbg, dict) else {}
+        transcript_dbg = persona_state_dbg.get("transcript") or []
 
         resp["debug"] = {
-            "turn": (meta or {}).get("turn"),
-            "trace": (meta or {}).get("_trace", []),  # 아래 2)에서 넣을 예정
-            "transcript_tail": transcript[-4:],       # 마지막 4개만
-            "last_coach": (meta or {}).get("last_coach"),
-            "last_supervisor": (meta or {}).get("last_supervisor"),
+            "turn": (meta_dbg or {}).get("turn"),
+            "trace": (meta_dbg or {}).get("_trace", []),
+            "transcript_tail": transcript_dbg[-4:],
+            "last_coach": (meta_dbg or {}).get("last_coach"),
+            "last_supervisor": (meta_dbg or {}).get("last_supervisor"),
         }
 
     return JSONResponse(
@@ -442,5 +552,4 @@ async def chat_feedback(req: FeedbackRequest) -> Dict[str, Any]:
         content={"session_id": req.session_id, "final_feedback": feedback},
         media_type="application/json; charset=utf-8",
     )
-
 
