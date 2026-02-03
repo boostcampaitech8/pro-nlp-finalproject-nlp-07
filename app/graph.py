@@ -8,7 +8,7 @@ from langgraph.graph import StateGraph
 
 from persona import PersonaConfig, PersonaSession
 from app.persona_adapter import session_from_state, session_to_state
-from app.coach_stub import call_coach
+# from app.coach_stub import call_coach
 from app.supervisor_client import call_supervisor_validate
 
 
@@ -110,18 +110,14 @@ def build_graph(store, router_client, coach_client, persona_client, supervisor_c
         return stamp(s, "load_state")
 
     async def coach_node(s: GraphState) -> GraphState:
-        """coach는 항상 실행."""
         if coach_client is not None:
-            coach_out = await coach_client.run(
-                user_text=s["user_text"],
-                state=s.get("state", {}),
-                req_meta=s.get("req_meta", {}),
-            )
+            coach_out = await coach_client.run(...)
         else:
+            from app.coach_stub import call_coach  # lazy import
             coach_out = await call_coach(s["user_text"], s.get("state", {}))
-
         s["coach_out"] = coach_out
         return stamp(s, "coach")
+
 
     async def persona_node(s: GraphState) -> GraphState:
         """persona는 항상 실행."""

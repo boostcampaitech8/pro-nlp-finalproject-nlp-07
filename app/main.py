@@ -238,10 +238,29 @@ async def health() -> Dict[str, Any]:
         "ok": True,
         "store": STATE_STORE,
         "clova_ready": bool(persona_client),
-        "router_ready": bool(router_client),
         "graph_ready": bool(graph),
         "graph_error": graph_init_error,
     }
+
+
+# ---------- model load ----------
+@app.on_event("startup")
+async def _startup_load_coach():
+    if os.getenv("COACH_ENABLED", "1") != "1":
+        return
+    # coach_stub의 lazy loader를 강제로 태움
+    from app.coach_stub import _get_coach
+    coach = await asyncio.to_thread(_get_coach)
+
+    # (선택) 아주 짧은 워밍업 1회: 커널/캐시 예열
+    dummy = {
+        "situation_summary": "워밍업",
+        "assistant_villain_level": 1,
+        "last_5_turns": [],
+        "current_user_response": "워밍업",
+    }
+    await asyncio.to_thread(coach.predict, dummy)
+
 
 
 # ---------- Persona-only endpoint ----------

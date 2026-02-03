@@ -9,43 +9,26 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 import requests
+import builtins
 
 
 # -----------------------------
 # 0) .env loader (no dependency)
 # -----------------------------
-def load_dotenv_min(path: str = ".env", override: bool = False) -> None:
-    """
-    Minimal .env loader (no python-dotenv dependency).
-    Supports:
-      KEY=VALUE
-      KEY="VALUE"
-      KEY='VALUE'
-    Ignores comments (#) and empty lines.
-    """
+def load_dotenv_min(path: str, override: bool = False):
     if not os.path.exists(path):
         return
 
-    def strip_quotes(v: str) -> str:
-        v = v.strip()
-        if len(v) >= 2 and ((v[0] == v[-1] == '"') or (v[0] == v[-1] == "'")):
-            return v[1:-1]
-        return v
-
-    with open(path, "r", encoding="utf-8") as f:
+    with builtins.open(path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if "=" not in line:
+            if not line or line.startswith("#") or "=" not in line:
                 continue
             k, v = line.split("=", 1)
-            k = k.strip()
-            v = strip_quotes(v.strip())
-
             if not override and k in os.environ:
                 continue
             os.environ[k] = v
+
 
 
 # -----------------------------
@@ -238,12 +221,17 @@ class PersonaSession:
         self.transcript = self.transcript[-6:] # 최근 6개만 남긴다. (컨텍스트 한계 대비) - 이 부분은 더 늘리고 줄일 수 있다.
 
     def respond(self, user_text: str, system_hint: Optional[str] = None) -> str:
+        """
+        Generate a persona reply and commit it into transcript.
+
+        system_hint:
+          - Optional, short supervisor instruction used only for *this* generation.
+          - Must not redefine persona_name/role_description; it should only guide tone/format corrections.
+        """
         self._maybe_summarize()
 
-        # 기본 system prompt
         messages: List[Dict[str, str]] = [{"role": "system", "content": self._system_prompt()}]
 
-        # (중요) supervisor가 준 힌트는 "해당 턴"에만 system 메시지로 주입
         if system_hint:
             messages.append({
                 "role": "system",
@@ -255,8 +243,8 @@ class PersonaSession:
                 )
             })
 
-        # 기존 대화 + 이번 user 입력
         messages += self.transcript + [{"role": "user", "content": user_text}]
+
 
         # 3단계 기준: 쉬움(1) < 보통(2) < 어려움(3)
         d = int(self.cfg.difficulty)
@@ -275,11 +263,61 @@ class PersonaSession:
         )
         out = _extract_assistant_text(resp).strip()
         out = out.replace("\\n", "\n")
-
-        # transcript 업데이트는 동일
         self.transcript.append({"role": "user", "content": user_text})
         self.transcript.append({"role": "assistant", "content": out})
         return out
+
+    def open(self, system_hint: Optional[str] = None) -> str:
+        """
+        Start-of-session first utterance (persona speaks first).
+        - Does NOT append a user turn to transcript.
+        - Appends only assistant message.
+        """
+        self._maybe_summarize()
+
+        messages: List[Dict[str, str]] = [{"role": "system", "content": self._system_prompt()}]
+
+        if system_hint:
+            messages.append({
+                "role": "system",
+                "content": (
+                    "[Opening Hint]\n"
+                    "아래 힌트를 반영해서 첫 발화를 생성하라. 코치/해설/평가를 섞지 말고 역할극만 유지하라.\n"
+                    f"{system_hint}"
+                )
+            })
+
+        # Pseudo user instruction to trigger the model to speak first (not stored)
+        messages.append({
+            "role": "user",
+            "content": (
+                "대화를 지금 시작한다. 너는 상대역으로서 상황에 맞는 첫 마디를 자연스럽게 먼저 말해라. "
+                "질문 1개 또는 짧은 말로 시작하되, 설명/해설은 하지 마라."
+            )
+        })
+
+        d = int(self.cfg.difficulty)
+        if d == 1:
+            temperature = 0.35
+        elif d == 2:
+            temperature = 0.45
+        else:
+            temperature = 0.55
+
+        resp = self.client.chat_completions(
+            messages=messages,
+            temperature=temperature,
+            top_p=0.9,
+            max_tokens=420,
+        )
+        out = _extract_assistant_text(resp).strip().replace("\\n", "\n")
+
+        # transcript에는 assistant만 추가 (user turn 없음)
+        self.transcript.append({"role": "assistant", "content": out})
+        return out
+
+
+
 
 
 # -----------------------------

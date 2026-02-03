@@ -33,7 +33,13 @@ async def test_langgraph_end_to_end_memory_store():
     persona_client = FakeClovaClient("persona")
     supervisor_client = FakeClovaClient("supervisor")
 
-    graph = build_graph(store, persona_client, supervisor_client)
+    graph = build_graph(
+        store=store,
+        router_client=None,
+        coach_client=None,
+        persona_client=persona_client,
+        supervisor_client=supervisor_client,
+    )
 
     session_id = "s1"
     out = await graph.ainvoke({
