@@ -27,7 +27,8 @@ Coach / Persona / Supervisor 모델 오케스트레이션을 담당한다.
 ```text
 ai/
 ├── app/
-│   ├── coach_stub.py          # Coach 모델 인터페이스 (lazy load / GPU 추론)
+│   ├── coach_model.py          # Coach LLM 실제 구현체 (GPU 모델 로딩 및 추론 로직)
+│   ├── coach_stub.py          # Coach 모델 인터페이스
 │   ├── feedback_client.py     # 세션 기반 최종 피드백 생성
 │   ├── graph.py               # 대화 실행 그래프 (Coach → Persona → Supervisor)
 │   ├── main.py                # FastAPI 엔트리포인트
