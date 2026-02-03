@@ -508,48 +508,45 @@ async def chat_message(req: ChatRequest, debug: bool = Query(default=False)) -> 
 
 @app.post("/chat/feedback")
 async def chat_feedback(req: FeedbackRequest) -> Dict[str, Any]:
-    """웹에서 '대화 종료' 시: 세션 전체 transcript 기반 최종 피드백 생성."""
-    if persona_client is None:
-        raise HTTPException(status_code=500, detail="Clova client not initialized. Set CLOVA_ENDPOINT/CLOVA_API_KEY.")
+    session_id = req.session_id
+    if not session_id:
+        raise HTTPException(status_code=422, detail="session_id is required")
 
-    st = await store.load(req.session_id)
-    persona_state = (st.get("persona") or {}) if isinstance(st, dict) else {}
-    persona_cfg = (persona_state.get("cfg") or {}) if isinstance(persona_state, dict) else {}
-    transcript = (persona_state.get("transcript") or []) if isinstance(persona_state, dict) else []
+    # 1) 세션 상태 로드
+    st = await store.load(session_id)
+    if not st:
+        # 없는 세션이면 피드백 생성 금지
+        raise HTTPException(status_code=404, detail=f"Session not found: {session_id}")
 
-    meta = (st.get("meta") or {}) if isinstance(st, dict) else {}
-    coach_history = meta.get("coach_history") if isinstance(meta, dict) else None
+    persona_state = st.get("persona") or {}
+    transcript = persona_state.get("transcript") or []
+    cfg = persona_state.get("cfg") or {}
 
-    # if the caller provides persona fields, prefer them (helps when cfg isn't stored yet)
-    if any([req.template_id, req.persona_name, req.role_description, req.style_notes, req.rules]):
-        fields = resolve_persona_fields(
-            template_id=req.template_id,
-            persona_name=req.persona_name,
-            role_description=req.role_description,
-            difficulty=req.difficulty,
-            style_notes=req.style_notes,
-            rules=req.rules,
-        )
-        persona_cfg = {
-            **(persona_cfg or {}),
-            "persona_name": fields["persona_name"],
-            "role_description": fields["role_description"],
-            "difficulty": int(fields["difficulty"]),
-            "style_notes": fields["style_notes"],
-            "rules": fields["rules"],
-        }
+    # 2) transcript 유효성 체크
+    if not isinstance(transcript, list) or len(transcript) == 0:
+        raise HTTPException(status_code=422, detail="No transcript found for session (empty conversation).")
 
+    # USER 발화가 1개 이상 있는지 체크 (권장)
+    user_turns = [m for m in transcript if isinstance(m, dict) and m.get("role") == "user" and (m.get("content") or "").strip()]
+    if len(user_turns) == 0:
+        raise HTTPException(status_code=422, detail="No user turns found. Feedback requires at least 1 user message.")
+
+    # 3) coach_history(있으면)
+    meta = st.get("meta") or {}
+    coach_history = meta.get("coach_history")
+
+    # 4) feedback 생성
     feedback = await asyncio.to_thread(
         call_final_feedback_clova,
         persona_client,
-        persona_cfg or {},
+        cfg or {},
         transcript,
         coach_history,
         None,
     )
 
     return JSONResponse(
-        content={"session_id": req.session_id, "final_feedback": feedback},
-        media_type="application/json; charset=utf-8",
+        content={"session_id": session_id, "final_feedback": feedback},
+        media_type="application/json; charset=utf-8"
     )
 
