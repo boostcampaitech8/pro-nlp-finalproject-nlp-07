@@ -23,7 +23,15 @@ async def create_session(
     session_data: SessionCreate,
     db: Session = Depends(get_db)
 ):
-    """새로운 채팅 세션 생성"""
+    """
+    새로운 채팅 세션 생성
+    
+    - **user_id**: 익명 사용자 ID (anon_<UUID> 형식)
+    - **persona_name**: 페르소나 이름 (예: "면접관", "친한 친구")
+    - **role_description**: 역할 설명
+    - **difficulty**: 난이도 (1-5)
+    - **metadata**: 추가 메타데이터 (선택)
+    """
     session = SessionService.create_session(session_data, db)
     return SessionResponse.model_validate(session)
 
@@ -53,14 +61,6 @@ async def end_session(
 ):
     """
     세션 종료 및 최종 피드백 생성
-    
-    ✅ 역할:
-    1. 세션 유효성 검증
-    2. 대화 내역 조회
-    3. FeedbackService로 피드백 생성 (비즈니스 로직)
-    4. DB에 피드백 저장 (데이터 레이어)
-    5. 세션 상태 업데이트
-    6. 응답 반환
     """
     
     # 1. 세션 조회
@@ -91,9 +91,7 @@ async def end_session(
             detail="Cannot end session without any messages"
         )
     
-    # 3. ✅ FeedbackService로 피드백 생성 (비즈니스 로직)
-    # TODO: 향후 AI 기반 피드백으로 변경
-    # feedback_data = await FeedbackService.generate_ai_feedback(session, messages)
+    # 3. 피드백 생성
     feedback_data = FeedbackService.generate_feedback(session, messages)
     
     # 4. 통계 계산
@@ -102,10 +100,9 @@ async def end_session(
     # 5. 세션 종료
     session.status = "completed"
     session.ended_at = datetime.utcnow()
-    session.end_reason = end_request.reason
     session.user_rating = end_request.user_rating
     
-    # 6. ✅ DB에 피드백 저장 (데이터 레이어)
+    # 6. 피드백 저장
     feedback = SessionFeedback(
         session_id=session_id,
         overall_score=feedback_data["score"],

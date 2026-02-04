@@ -14,14 +14,15 @@ class AgentService:
         "health": "/health"
     }
     
-    # 기본 엔드포인트
     DEFAULT_ENDPOINT = ENDPOINTS["agent"]
     
     @staticmethod
     async def get_response(
         user_message: str,
         session_id: str,
-        template_id: int = 1,
+        persona_name: str,
+        role_description: str,
+        difficulty: int = 2,
         use_supervisor: bool = False,
         endpoint: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -31,33 +32,30 @@ class AgentService:
         Args:
             user_message: 사용자 메시지
             session_id: 세션 ID
-            template_id: 템플릿 ID (1: 친한 친구, 2: 무뚝뚝한 점원)
+            persona_name: 페르소나 이름
+            role_description: 역할 설명
+            difficulty: 난이도 (1-5)
             use_supervisor: Supervisor 검수 사용 여부
-            endpoint: 커스텀 엔드포인트 (기본값: /chat/message)
+            endpoint: 커스텀 엔드포인트
             
         Returns:
             AI 에이전트 응답 딕셔너리
-            {
-                "text": "페르소나 응답",
-                "coach": {...},
-                "supervisor": {...}
-            }
         """
         
-        # 외부 Agent API 호출 시도
         try:
             return await AgentService._call_external_api(
                 user_message, 
                 session_id, 
-                template_id,
+                persona_name,
+                role_description,
+                difficulty,
                 use_supervisor,
                 endpoint
             )
         except Exception as e:
             print(f"⚠️ 외부 API 호출 실패, 폴백 응답 사용: {e}")
-            # 폴백: 간단한 응답
             return {
-                "text": AgentService._get_fallback_response(user_message, template_id),
+                "text": AgentService._get_fallback_response(user_message, persona_name),
                 "coach": None,
                 "supervisor": None
             }
@@ -66,19 +64,19 @@ class AgentService:
     async def _call_external_api(
         user_message: str,
         session_id: str,
-        template_id: int,
+        persona_name: str,
+        role_description: str,
+        difficulty: int,
         use_supervisor: bool,
         endpoint: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        외부 Agent API 호출 (실제 구현)
-        """
-        # ✅ 엔드포인트 결정
+        """외부 Agent API 호출 (실제 구현)"""
+        
         api_endpoint = endpoint or AgentService.DEFAULT_ENDPOINT
         api_url = f"{AGENT_API_HOST}{api_endpoint}"
         
         print(f"🔗 Agent API 호출: {api_url}")
-        print(f"📦 요청 데이터: session_id={session_id}, template_id={template_id}, use_supervisor={use_supervisor}")
+        print(f"📦 Persona: {persona_name}, Difficulty: {difficulty}")
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -86,9 +84,13 @@ class AgentService:
                     api_url,
                     json={
                         "session_id": session_id,
-                        "template_id": template_id,
+                        "template_id": 1,  # ✅ 고정값
                         "user_text": user_message,
-                        "use_supervisor": use_supervisor
+                        "use_supervisor": use_supervisor,
+                        # ✅ 페르소나 정보 직접 전달
+                        "persona_name": persona_name,
+                        "role_description": role_description,
+                        "difficulty": difficulty
                     },
                     headers={
                         "Authorization": f"Bearer {AGENT_API_KEY}",
@@ -99,25 +101,15 @@ class AgentService:
                 response.raise_for_status()
                 data = response.json()
                 
-                print(f"✅ Agent API 응답: {data}")
+                print(f"✅ Agent API 응답 수신")
                 
-                # ✅ AI 서버 응답 형식에 맞춰 파싱
-                # 응답 예상 형식:
-                # {
-                #   "session_id": "...",
-                #   "persona": {"text": "..."},
-                #   "coach": {...},
-                #   "supervisor": {...}
-                # }
-                
+                # 응답 파싱
                 persona_text = ""
                 if isinstance(data, dict):
-                    # persona.text 추출
                     persona = data.get("persona", {})
                     if isinstance(persona, dict):
                         persona_text = persona.get("text", "")
                     
-                    # 응답 구성
                     return {
                         "text": persona_text or data.get("response") or data.get("message") or str(data),
                         "coach": data.get("coach"),
@@ -145,67 +137,21 @@ class AgentService:
             raise
     
     @staticmethod
-    def _get_fallback_response(user_message: str, template_id: int) -> str:
-        """
-        폴백 응답 생성 (외부 API 실패 시)
-        """
-        
-        # 템플릿별 기본 응답
-        fallback_responses = {
-            1: {  # 친한 친구
-                "greeting": "야, 늦었잖아! 얼마나 기다렸는지 알아?",
-                "default": f"'{user_message}'라고? 그래서 뭐?"
-            },
-            2: {  # 무뚝뚝한 점원
-                "greeting": "네, 무엇을 도와드릴까요?",
-                "default": f"'{user_message}'에 대해서는 규정을 확인해야 합니다."
-            }
-        }
-        
-        # 템플릿별 응답 선택
-        responses = fallback_responses.get(template_id, fallback_responses[1])
-        
-        # 간단한 키워드 매칭
-        greetings = ["안녕", "hello", "hi", "안녕하세요", "처음", "시작"]
-        if any(keyword in user_message.lower() for keyword in greetings):
-            return responses["greeting"]
-        
-        return responses["default"]
+    def _get_fallback_response(user_message: str, persona_name: str) -> str:
+        """폴백 응답 생성"""
+        return f"[{persona_name}] '{user_message}'에 대해 답변드리겠습니다."
     
     @staticmethod
     async def start_session(
         session_id: str,
-        template_id: int = 1,
+        persona_name: str,
+        role_description: str,
+        difficulty: int = 2,
         use_supervisor: bool = False
     ) -> Dict[str, Any]:
-        """
-        세션 시작 (AI가 먼저 말을 건다)
+        """세션 시작 (AI가 먼저 말을 건다)"""
         
-        Args:
-            session_id: 세션 ID
-            template_id: 템플릿 ID
-            use_supervisor: Supervisor 검수 사용 여부
-            
-        Returns:
-            시작 응답
-        """
         api_url = f"{AGENT_API_HOST}{AgentService.ENDPOINTS['start']}"
-        
-        # 템플릿 정보
-        templates = {
-            1: {
-                "persona_name": "친한 친구",
-                "role_description": "너는 약속 장소에서 기다리다 화가 난 친구다. 사용자는 늦게 도착했다.",
-                "difficulty": 2
-            },
-            2: {
-                "persona_name": "무뚝뚝한 점원",
-                "role_description": "너는 무뚝뚝하지만 규칙을 지키는 점원이다. 사용자는 환불/교환/문의 요청을 한다.",
-                "difficulty": 2
-            }
-        }
-        
-        template = templates.get(template_id, templates[1])
         
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
@@ -213,10 +159,10 @@ class AgentService:
                     api_url,
                     json={
                         "session_id": session_id,
-                        "template_id": template_id,
-                        "persona_name": template["persona_name"],
-                        "role_description": template["role_description"],
-                        "difficulty": template["difficulty"],
+                        "template_id": 1,  # ✅ 고정값
+                        "persona_name": persona_name,
+                        "role_description": role_description,
+                        "difficulty": difficulty,
                         "use_supervisor": use_supervisor
                     },
                     headers={
@@ -228,7 +174,6 @@ class AgentService:
                 response.raise_for_status()
                 data = response.json()
                 
-                # persona.text 추출
                 persona = data.get("persona", {})
                 persona_text = persona.get("text", "") if isinstance(persona, dict) else ""
                 
@@ -239,21 +184,14 @@ class AgentService:
                 
         except Exception as e:
             print(f"❌ 세션 시작 실패: {e}")
-            # 폴백
-            fallback_texts = {
-                1: "야! 왜 이제 와? 한 시간 넘게 기다렸다고!",
-                2: "네, 어서 오세요. 무엇을 도와드릴까요?"
-            }
             return {
-                "text": fallback_texts.get(template_id, fallback_texts[1]),
+                "text": f"[{persona_name}] 안녕하세요!",
                 "session_id": session_id
             }
     
     @staticmethod
     async def test_connection(endpoint: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Agent API 연결 테스트
-        """
+        """Agent API 연결 테스트"""
         api_endpoint = endpoint or AgentService.ENDPOINTS["health"]
         api_url = f"{AGENT_API_HOST}{api_endpoint}"
         

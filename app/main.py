@@ -8,7 +8,7 @@ from app.db.database import init_db, check_db_connection
 
 app = FastAPI(
     title=PROJECT_NAME,
-    description="면접 연습용 AI 에이전트 API",
+    description="Mind GYM backend API",
     version="1.0.0",
     debug=DEBUG
 )
