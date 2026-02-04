@@ -10,7 +10,7 @@ def _get_coach():
     global _coach_ai
     if _coach_ai is None:
         from app.coach_model import MindGymCoach
-        model_path = os.getenv("COACH_MODEL_PATH", "shinjipark/qwen2.5_14B_coach")
+        model_path = os.getenv("COACH_MODEL_PATH", "shinjipark/qwen2.5_14B_coach_v3")
         _coach_ai = MindGymCoach(model_path=model_path)
     return _coach_ai
 
@@ -22,7 +22,7 @@ def _difficulty_1to3(d: int) -> int:
 
 async def call_coach(user_text: str, state: Dict[str, Any]) -> Dict[str, Any]:
     # 코치 비활성화 모드: 절대 모델 로딩/추론 안 함
-    if os.getenv("COACH_ENABLED", "0") != "1":
+    if os.getenv("COACH_ENABLED", "1") != "1":
         return {"intervene": False, "rewrite": "", "examples": [], "signals": []}
 
     persona_state = state.get("persona", {}) if isinstance(state, dict) else {}
