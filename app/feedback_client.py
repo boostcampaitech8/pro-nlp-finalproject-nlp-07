@@ -47,13 +47,6 @@ def _extract_json_object(text: str) -> Optional[str]:
 def _repair_llm_broken_segments(text: str) -> str:
     """
     LLM이 자주 만드는 'JSON 비슷하지만 문법 깨진' 패턴을 복구한다.
-
-    주요 타겟:
-      - "A" -> "B" (문자열 밖 화살표)
-      - "A" 대신 "B" 로 ... (문자열 안에 따옴표를 그대로 써서 깨짐)
-    전략:
-      - 위 패턴이 나오면, 해당 구간(패턴+뒤 꼬리)을 통째로 "하나의 문자열"로 json.dumps로 감싼다.
-      - 이렇게 하면 내부 따옴표/화살표가 모두 문자열 내부로 들어가 JSON 파싱이 가능해진다.
     """
     if not text:
         return text
@@ -61,8 +54,6 @@ def _repair_llm_broken_segments(text: str) -> str:
     # 코드펜스 제거
     text = re.sub(r"```(?:json)?", "", text, flags=re.IGNORECASE).strip()
 
-    # 1) "A" -> "B" + 뒤에 이어지는 꼬리(, ] } 전까지)를 통째로 하나의 JSON 문자열로 만들기
-    #    예: "x" -> "y" 로 바꿔 말하기   =>  "x -> y 로 바꿔 말하기"
     def repl_arrow(m: re.Match) -> str:
         a = m.group(1)
         b = m.group(2)
@@ -75,8 +66,6 @@ def _repair_llm_broken_segments(text: str) -> str:
         text,
     )
 
-    # 2) "A" 대신 "B" + 꼬리(, ] } 전까지)를 통째로 하나의 JSON 문자열로 만들기
-    #    예: "x" 대신 "y" 로 바꿔 말하기 => "x 대신 y 로 바꿔 말하기"
     def repl_instead(m: re.Match) -> str:
         a = m.group(1)
         b = m.group(2)
@@ -89,8 +78,6 @@ def _repair_llm_broken_segments(text: str) -> str:
         text,
     )
 
-    # 3) 혹시 남아있는 '이중 따옴표 조각'을 줄이기 위해, 아래처럼 "A" 로 바꿔 등도 처리 (옵션)
-    #    단, 이미 1)2)에서 대부분 잡힘.
     return text
 
 
@@ -156,26 +143,53 @@ def _fallback_feedback(non_json: str) -> Dict[str, Any]:
     }
 
 
-def _build_transcript_for_prompt(transcript: List[Dict[str, str]], max_turns: int = 40) -> str:
+def _build_transcript_views(transcript: List[Dict[str, str]], max_turns: int = 40) -> Dict[str, str]:
+    """
+    전체 맥락은 유지하되, '교정 대상'은 USER 발화로만 강제할 수 있도록
+    transcript를 3가지 뷰로 제공한다.
+
+    - mixed: 전체 대화 (맥락용)
+    - user_only: USER 발화만 (교정/평가 대상)
+    - assistant_only: ASSISTANT(persona) 발화만 (압박/톤/상황 참고용)
+
+    또한 turn 식별을 위해 T번호를 붙인다.
+    """
     if not isinstance(transcript, list):
-        return ""
+        return {"mixed": "", "user_only": "", "assistant_only": ""}
+
     tail = transcript[-max_turns:]
-    lines: List[str] = []
-    for m in tail:
+    mixed_lines: List[str] = []
+    user_lines: List[str] = []
+    asst_lines: List[str] = []
+
+    # T번호는 전체 transcript 기준 tail 시작 인덱스 기반으로 부여
+    base = max(1, len(transcript) - len(tail) + 1)
+
+    for i, m in enumerate(tail):
         if not isinstance(m, dict):
             continue
         role = (m.get("role") or "").strip()
         content = (m.get("content") or "").strip()
         if not role or not content:
             continue
+
+        tid = f"T{base + i}"
         if role == "assistant":
-            tag = "ASSISTANT(persona)"
+            line = f"{tid} ASSISTANT(persona): {content}"
+            mixed_lines.append(line)
+            asst_lines.append(line)
         elif role == "user":
-            tag = "USER"
+            line = f"{tid} USER: {content}"
+            mixed_lines.append(line)
+            user_lines.append(line)
         else:
-            tag = role.upper()
-        lines.append(f"{tag}: {content}")
-    return "\n".join(lines)
+            mixed_lines.append(f"{tid} {role.upper()}: {content}")
+
+    return {
+        "mixed": "\n".join(mixed_lines),
+        "user_only": "\n".join(user_lines),
+        "assistant_only": "\n".join(asst_lines),
+    }
 
 
 def _build_coach_summary_for_prompt(coach_history: Any, max_items: int = 20) -> str:
@@ -188,18 +202,63 @@ def _build_coach_summary_for_prompt(coach_history: Any, max_items: int = 20) -> 
             if not isinstance(x, dict):
                 continue
             items.append(
-                f"- intervene={x.get('intervene')}, signals={x.get('signals') or []}, "
+                f"- turn={x.get('turn')}, intervene={x.get('intervene')}, signals={x.get('signals') or []}, "
                 f"rewrite={str(x.get('rewrite') or '')[:120]}, examples_cnt={len(x.get('examples') or [])}"
             )
         return "\n".join(items)
 
     if isinstance(coach_history, dict):
         return (
-            f"- intervene={coach_history.get('intervene')}, signals={coach_history.get('signals') or []}, "
+            f"- turn={coach_history.get('turn')}, intervene={coach_history.get('intervene')}, signals={coach_history.get('signals') or []}, "
             f"rewrite={str(coach_history.get('rewrite') or '')[:120]}, examples_cnt={len(coach_history.get('examples') or [])}"
         )
 
     return str(coach_history)[:500]
+
+
+def _build_coach_interventions_compact(coach_history: Any, max_items: int = 3) -> str:
+    """
+    intervene=true인 코치 개입만 '짧게' 추려서 피드백에 재사용.
+    - 너무 길어지지 않게 rewrite/signal을 컷
+    """
+    if not coach_history:
+        return ""
+
+    items: List[Dict[str, Any]] = []
+    if isinstance(coach_history, list):
+        for x in coach_history:
+            if isinstance(x, dict) and bool(x.get("intervene")):
+                items.append(x)
+    elif isinstance(coach_history, dict) and bool(coach_history.get("intervene")):
+        items = [coach_history]
+
+    if not items:
+        return ""
+
+    items = items[-max_items:]
+    lines: List[str] = []
+
+    for x in items:
+        turn = x.get("turn")
+        rewrite = (x.get("rewrite") or "").strip()
+        signals = x.get("signals") or []
+
+        if len(rewrite) > 160:
+            rewrite = rewrite[:160] + "..."
+
+        sig0 = ""
+        if isinstance(signals, list) and signals:
+            sig0 = str(signals[0])
+            if len(sig0) > 140:
+                sig0 = sig0[:140] + "..."
+
+        prefix = f"- turn={turn}: " if turn is not None else "- "
+        if sig0:
+            lines.append(f"{prefix}signal={sig0} | rewrite={rewrite}")
+        else:
+            lines.append(f"{prefix}rewrite={rewrite}")
+
+    return "\n".join(lines)
 
 
 # -----------------------------
@@ -216,31 +275,54 @@ def call_final_feedback_clova(
     persona_name = (persona_cfg or {}).get("persona_name", "")
     role_description = (persona_cfg or {}).get("role_description", "")
 
-    transcript_text = _build_transcript_for_prompt(transcript, max_turns=40)
+    tx = _build_transcript_views(transcript, max_turns=40)
+    transcript_mixed = tx["mixed"]
+    transcript_user_only = tx["user_only"]
+    transcript_asst_only = tx["assistant_only"]
+
     coach_text = _build_coach_summary_for_prompt(coach_history, max_items=20)
+    coach_interventions = _build_coach_interventions_compact(coach_history, max_items=3)
 
     system = "Return ONLY valid JSON. No markdown. No extra text."
 
-    # 프롬프트도 최대한 안전하게: 따옴표/화살표 사용 금지
+    # 핵심: 맥락은 mixed로 충분히 주되, 교정 대상은 USER-only로 강제
+    # 또한 coach 개입 내용을 '짧게' 리캡해서, 피드백을 고도화하되 길어지지 않게 한다.
     user_prompt = f"""
-반드시 **유효한 JSON 하나만** 출력하라. 설명/추가 텍스트/마크다운 금지.
+반드시 유효한 JSON 하나만 출력하라. 설명/추가 텍스트/마크다운 금지.
 
-[중요 규칙]
-- user_profile은 USER 발화만 보고 추론하라. ASSISTANT(persona)의 말투/태도는 user_profile에 포함하지 마라.
+[중요 규칙: 화자 기준]
+- 상황 이해는 mixed(전체 대화)를 활용하되, '교정/평가/수정' 대상은 반드시 USER 발화만이다.
+- sentence_expression_evaluation.good_points / improve_points / rewrite_examples는 USER 발화만을 대상으로 작성하라.
+- ASSISTANT(persona)의 문장을 '고쳐야 할 문장'으로 포함하거나 rewrite_examples에 넣지 마라.
+- 상대(ASSISTANT)의 말투/태도는 상황 평가(situation_response_evaluation)에서 참고할 수 있으나, 사용자 교정 대상으로 취급하지 마라.
+- 특정 발화를 지칭할 때 문장을 그대로 인용하지 말고 T번호로만 참조하라. 예: T12 USER
+
+[중요 규칙: 출력 품질/길이]
 - 점수는 1~5 정수.
 - 리스트 필드는 항상 리스트로.
 - 문자열 안에 큰따옴표(")를 직접 넣지 마라.
-- 변환표현(->, 대신)을 쓰지 마라. rewrite_examples에는 "완성 문장"만 넣어라.
+- 변환표현(->, 대신)을 쓰지 마라. rewrite_examples에는 완성 문장만 넣어라.
+- next_action_guide.copyable_lines는 최대 2개만 넣어라.
+  가능하면 coach 개입 스니펫의 rewrite를 짧게 재사용하되, 반드시 USER가 말할 문장으로 제시하라.
 
 [컨텍스트]
 persona_name: {persona_name}
 role_description: {role_description}
 
-[대화 로그]
-{transcript_text}
+[대화 로그 (mixed: 전체 맥락)]
+{transcript_mixed}
 
-[coach 요약(있으면 참고)]
+[USER 발화만 (평가/교정 대상)]
+{transcript_user_only}
+
+[ASSISTANT 발화만 (맥락 참고용)]
+{transcript_asst_only}
+
+[coach 요약 (있으면 참고)]
 {coach_text}
+
+[coach 개입 스니펫 (intervene=true, 최대 3개)]
+{coach_interventions}
 
 [출력 스키마]
 {{
@@ -284,16 +366,20 @@ role_description: {role_description}
     if data is not None:
         return data
 
-    # 2차 repair: JSON만 다시 (그래도 깨지면 파서가 복구)
+    # 2차 repair
     repair_prompt = f"""
-직전 출력이 JSON 파싱에 실패했다. **유효한 JSON 하나만** 다시 출력하라. 설명 금지.
+직전 출력이 JSON 파싱에 실패했다. 유효한 JSON 하나만 다시 출력하라. 설명 금지.
 
 [금지]
 - 큰따옴표(")를 문자열 내부에 직접 넣지 마라.
 - ->, 대신 같은 변환표현 금지. rewrite_examples는 완성 문장만.
+- ASSISTANT(persona)의 문장을 고칠 문장으로 포함하지 마라.
 
-[대화 로그]
-{transcript_text}
+[대화 로그 (mixed)]
+{transcript_mixed}
+
+[USER 발화만]
+{transcript_user_only}
 
 [직전 출력]
 {raw}

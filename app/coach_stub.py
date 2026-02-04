@@ -10,7 +10,7 @@ def _get_coach():
     global _coach_ai
     if _coach_ai is None:
         from app.coach_model import MindGymCoach
-        model_path = os.getenv("COACH_MODEL_PATH", "shinjipark/qwen2.5_14B_coach_v3")
+        model_path = os.getenv("COACH_MODEL_PATH", "shinjipark/qwen2.5_14B_coach")
         _coach_ai = MindGymCoach(model_path=model_path)
     return _coach_ai
 

@@ -216,11 +216,19 @@ def build_graph(store, router_client, coach_client, persona_client, supervisor_c
         st["meta"]["turn"] = int(st["meta"].get("turn", 0)) + 1
         st["meta"]["last_user_text"] = s["user_text"]
         st["meta"]["last_persona_text"] = s.get("persona_text", "")
+
         # --- keep light histories for end-of-session feedback ---
         coach_out = s.get("coach_out")
         supervisor_out = s.get("supervisor_out")
 
-        st["meta"]["last_coach"] = coach_out
+        # coach_out에 turn 부착 (feedback에서 개입 지점 추적 가능)
+        turn_no = int(st["meta"]["turn"])
+        if isinstance(coach_out, dict):
+            coach_out_with_turn = {"turn": turn_no, **coach_out}
+        else:
+            coach_out_with_turn = coach_out
+
+        st["meta"]["last_coach"] = coach_out_with_turn
         st["meta"]["last_supervisor"] = supervisor_out
 
         # Append bounded histories (optional fields; safe for existing stored states)
@@ -228,8 +236,8 @@ def build_graph(store, router_client, coach_client, persona_client, supervisor_c
         meta.setdefault("coach_history", [])
         meta.setdefault("supervisor_history", [])
 
-        if coach_out is not None:
-            meta["coach_history"].append(coach_out)
+        if coach_out_with_turn is not None:
+            meta["coach_history"].append(coach_out_with_turn)
             meta["coach_history"] = meta["coach_history"][-30:]
 
         if supervisor_out is not None and not (isinstance(supervisor_out, dict) and supervisor_out.get("skipped")):
@@ -249,6 +257,7 @@ def build_graph(store, router_client, coach_client, persona_client, supervisor_c
         s["ui_flow"] = {"show_order": show_order, "requires_user_confirm": True}
         s.pop("persona_session", None)
         return stamp(s, "save")
+
 
     g.add_node("load_state", load_state_node)
     g.add_node("coach", coach_node)
