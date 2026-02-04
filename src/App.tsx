@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { HomePage } from './pages/HomePage';
 import { ChatPage } from './pages/ChatPage';
+import { FeedbackPage } from './pages/FeedbackPage'; // ✅ 추가
 import { LoadingScreen } from './components/Common/LoadingScreen';
 import { userService } from './services/userService';
 import './App.css';
@@ -33,6 +34,7 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/chat/:sessionId" element={<ChatPage />} />
+        <Route path="/feedback/:sessionId" element={<FeedbackPage />} /> {/* ✅ 추가 */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

@@ -2,7 +2,9 @@ import React, { useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { ScenarioSetup } from './ScenarioSetup';
 import { TypingIndicator } from './TypingIndicator';
+import { FeedbackView } from './FeedbackView'; // ✅ 다시 추가
 import type { Message } from '../../types';
+import type { SessionFeedback } from '../../types/feedback'; // ✅ 다시 추가
 import './ChatContainer.css';
 
 interface ChatContainerProps {
@@ -12,7 +14,9 @@ interface ChatContainerProps {
   onCustomCreate: () => void;
   showScenarioSetup?: boolean;
   personaName?: string;
-  isLoading?: boolean; // ✅ 로딩 prop 추가
+  isLoading?: boolean;
+  showFeedback?: boolean; // ✅ 다시 추가
+  feedbackData?: SessionFeedback | null; // ✅ 다시 추가
 }
 
 export const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -22,7 +26,9 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   onCustomCreate,
   showScenarioSetup = false,
   personaName,
-  isLoading = false, // ✅ 기본값 false
+  isLoading = false,
+  showFeedback = false, // ✅ 다시 추가
+  feedbackData = null, // ✅ 다시 추가
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -41,7 +47,15 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     );
   }
 
-  // ✅ 로딩 중일 때 로딩 표시
+  // ✅ 피드백 표시
+  if (showFeedback && feedbackData) {
+    return (
+      <div className="chat-container">
+        <FeedbackView feedbackData={feedbackData} />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="chat-container">

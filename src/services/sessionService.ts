@@ -54,6 +54,10 @@ interface SessionMessage {
   role: 'system' | 'persona' | 'user' | 'coach';
   content: string;
   timestamp: string;
+  metadata?: {  // ✅ 추가
+    signals?: string[];
+    [key: string]: any;
+  };
 }
 
 interface SessionMessagesResponse {

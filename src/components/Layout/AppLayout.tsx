@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { ChatContainer } from '../Chat/ChatContainer';
 import { MessageInput } from '../Input/MessageInput';
 import type { Message, Chat } from '../../types';
+import type { SessionFeedback } from '../../types/feedback'; // ✅ 다시 추가
 
 interface AppLayoutProps {
   messages: Message[];
@@ -25,7 +26,9 @@ interface AppLayoutProps {
   onDifficultyChange?: (level: number) => void;
   onSupervisorToggle?: (enabled: boolean) => void;
   onEndChat?: () => void;
-  isLoading?: boolean; // ✅ 로딩 prop 추가
+  isLoading?: boolean;
+  showFeedback?: boolean; // ✅ 다시 추가
+  feedbackData?: SessionFeedback | null; // ✅ 다시 추가
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -46,10 +49,18 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onDifficultyChange = () => {},
   onSupervisorToggle = () => {},
   onEndChat = () => {},
-  isLoading = false, // ✅ 기본값 false
+  isLoading = false,
+  showFeedback = false, // ✅ 다시 추가
+  feedbackData = null, // ✅ 다시 추가
 }) => {
   const hasMessages = messages.length > 0;
-  const headerTitle = personaName ? `${personaName}와의 대화` : 'AI Chatbot';
+  
+  // ✅ 피드백 모드일 때 타이틀 변경
+  const headerTitle = showFeedback 
+    ? '대화 피드백'
+    : personaName 
+    ? `${personaName}와의 대화` 
+    : 'AI Chatbot';
 
   return (
     <div className="app-container">
@@ -66,7 +77,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           useSupervisor={useSupervisor}
           onDifficultyChange={onDifficultyChange}
           onSupervisorToggle={onSupervisorToggle}
-          showActions={!showScenarioSetup}
+          showActions={!showScenarioSetup && !showFeedback} // ✅ 피드백 모드에서는 액션 숨김
         />
         <ChatContainer
           messages={messages}
@@ -75,9 +86,11 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           onCustomCreate={onCustomCreate}
           showScenarioSetup={showScenarioSetup}
           personaName={personaName}
-          isLoading={isLoading} // ✅ 로딩 전달
+          isLoading={isLoading}
+          showFeedback={showFeedback} // ✅ 다시 추가
+          feedbackData={feedbackData} // ✅ 다시 추가
         />
-        {!showScenarioSetup && hasMessages && (
+        {!showScenarioSetup && !showFeedback && hasMessages && ( // ✅ 피드백 모드에서는 입력창 숨김
           <MessageInput
             value={inputValue}
             onChange={onInputChange}

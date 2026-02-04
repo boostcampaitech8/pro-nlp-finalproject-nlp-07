@@ -6,6 +6,7 @@ import { chatService } from '../services/chatService';
 import { sessionService } from '../services/sessionService';
 import { userService } from '../services/userService';
 import type { Chat } from '../types';
+// ❌ 피드백 타입 import 제거
 
 interface LocationState {
   persona?: string;
@@ -30,13 +31,15 @@ export const ChatPage: React.FC = () => {
   const { persona, situation } = (location.state as LocationState) || {};
 
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(true); // ✅ 채팅 영역 로딩용으로 유지
+  const [isLoading, setIsLoading] = useState(true);
   const [personaName, setPersonaName] = useState<string>('상대방');
   
   const [difficulty, setDifficulty] = useState(2);
   const [useSupervisor, setUseSupervisor] = useState(false);
   
   const [chatHistories, setChatHistories] = useState<Chat[]>([]);
+  
+  // ❌ 피드백 관련 state 제거
   
   const chatState = useChat();
   const hasInitialized = useRef(false);
@@ -78,7 +81,7 @@ export const ChatPage: React.FC = () => {
     loadSessions();
   }, [userId]);
 
-  // ✅ 채팅 초기화
+  // 채팅 초기화
   useEffect(() => {
     if (hasInitialized.current) {
       return;
@@ -96,7 +99,7 @@ export const ChatPage: React.FC = () => {
       try {
         console.log('Initializing chat with session:', sessionId);
 
-        // ✅ 1. 메시지 조회 시도
+        // 1. 메시지 조회 시도
         try {
           const messagesData = await sessionService.getSessionMessages(sessionId);
           console.log('📂 Messages loaded:', messagesData);
@@ -128,7 +131,7 @@ export const ChatPage: React.FC = () => {
           console.log('⚠️ No messages found, will start new session');
         }
 
-        // ✅ 2. 새 세션 시작
+        // 2. 새 세션 시작
         if (!persona || !situation) {
           throw new Error('No scenario information for new session');
         }
@@ -175,12 +178,10 @@ export const ChatPage: React.FC = () => {
       const result = await chatService.sendMessage(sessionId, messageText, useSupervisor);
       console.log('Received response:', result);
 
-      // ✅ 코치 피드백 먼저
       if (result.coachFeedback) {
         chatState.addMessage(result.coachFeedback, 'coach');
       }
 
-      // ✅ AI 응답 나중에
       chatState.addMessage(result.response, 'assistant');
 
     } catch (error) {
@@ -208,9 +209,14 @@ export const ChatPage: React.FC = () => {
     console.log('🔧 Supervisor toggled:', enabled);
   };
 
+  // ✅ 대화 종료 - 피드백 페이지로 이동
   const handleEndChat = () => {
-    if (window.confirm('대화를 종료하고 홈으로 돌아가시겠습니까?')) {
-      navigate('/');
+    if (!window.confirm('대화를 종료하고 피드백을 확인하시겠습니까?')) {
+      return;
+    }
+
+    if (sessionId) {
+      navigate(`/feedback/${sessionId}`);
     }
   };
 
@@ -227,7 +233,6 @@ export const ChatPage: React.FC = () => {
     console.log('Settings clicked');
   };
 
-  // ✅ 전체 화면 로딩 제거, AppLayout으로 isLoading 전달
   return (
     <AppLayout
       messages={chatState.messages}
@@ -249,7 +254,8 @@ export const ChatPage: React.FC = () => {
       onDifficultyChange={handleDifficultyChange}
       onSupervisorToggle={handleSupervisorToggle}
       onEndChat={handleEndChat}
-      isLoading={isLoading} // ✅ 로딩 상태 전달
+      isLoading={isLoading}
+      // ❌ showFeedback, feedbackData props 제거
     />
   );
 };
