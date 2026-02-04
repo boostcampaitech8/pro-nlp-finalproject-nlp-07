@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '../components/Layout/AppLayout';
 import { LoadingScreen } from '../components/Common/LoadingScreen';
@@ -11,6 +11,18 @@ interface LocationState {
   situation?: string;
 }
 
+// ✅ Debounce 함수
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
 export const ChatPage: React.FC = () => {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
@@ -21,12 +33,24 @@ export const ChatPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [personaName, setPersonaName] = useState<string>('상대방');
   
-  // ✅ 설정 상태 유지
   const [difficulty, setDifficulty] = useState(2);
-  const [useSupervisor, setUseSupervisor] = useState(true);
+  const [useSupervisor, setUseSupervisor] = useState(false); // ✅ 기본값 false
   
   const chatState = useChat();
   const hasInitialized = useRef(false);
+
+  // ✅ Debounced 난이도 업데이트 함수
+  const debouncedUpdateDifficulty = useCallback(
+    debounce(async (sessionId: string, level: number) => {
+      try {
+        await sessionService.updateDifficulty(sessionId, level);
+        console.log('✅ Difficulty updated in DB:', level);
+      } catch (error) {
+        console.error('❌ Failed to update difficulty:', error);
+      }
+    }, 1000), // 1초 대기
+    []
+  );
 
   useEffect(() => {
     if (hasInitialized.current) {
@@ -86,7 +110,9 @@ export const ChatPage: React.FC = () => {
     chatState.setWaitingForResponse(true);
 
     try {
-      const result = await chatService.sendMessage(sessionId, messageText);
+      // ✅ useSupervisor 파라미터 전달
+      console.log('Sending message with use_supervisor:', useSupervisor);
+      const result = await chatService.sendMessage(sessionId, messageText, useSupervisor);
       console.log('Received response:', result);
 
       chatState.addMessage(result.response, 'assistant');
@@ -105,16 +131,20 @@ export const ChatPage: React.FC = () => {
     }
   };
 
-  const handleDifficultyChange = async (level: number) => {
+  // ✅ 난이도 변경 - Debounce로 DB 업데이트
+  const handleDifficultyChange = (level: number) => {
     setDifficulty(level);
-    console.log('Difficulty changed to:', level);
-    // TODO: API 호출
+    console.log('🎯 Difficulty UI changed to:', level);
+    
+    if (sessionId) {
+      debouncedUpdateDifficulty(sessionId, level);
+    }
   };
 
-  const handleSupervisorToggle = async (enabled: boolean) => {
+  // ✅ 정밀 모드 토글 - 로컬 상태만 변경
+  const handleSupervisorToggle = (enabled: boolean) => {
     setUseSupervisor(enabled);
-    console.log('Supervisor toggled:', enabled);
-    // TODO: API 호출
+    console.log('🔧 Supervisor toggled:', enabled);
   };
 
   const handleEndChat = () => {
@@ -155,7 +185,6 @@ export const ChatPage: React.FC = () => {
       onCustomCreate={() => {}}
       showScenarioSetup={false}
       personaName={personaName}
-      // ✅ 설정 props 전달 (AppLayout에서 사용할 수 있도록)
       difficulty={difficulty}
       useSupervisor={useSupervisor}
       onDifficultyChange={handleDifficultyChange}

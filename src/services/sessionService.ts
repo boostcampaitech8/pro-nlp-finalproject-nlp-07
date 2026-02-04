@@ -28,6 +28,10 @@ interface StartAgentResponse {
   opening_message: string;
 }
 
+interface UpdateDifficultyRequest {
+  difficulty: number;
+}
+
 export const sessionService = {
   /**
    * 새 대화 세션 생성
@@ -75,6 +79,28 @@ export const sessionService = {
 
     if (!response.ok) {
       throw new Error(`Failed to start agent: ${response.statusText}`);
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * 난이도 업데이트
+   * ✅ PATCH 메서드 사용
+   */
+  async updateDifficulty(sessionId: string, difficulty: number): Promise<void> {
+    const response = await fetch(`/api/v1/sessions/${sessionId}/difficulty`, {
+      method: 'PATCH', // ✅ PUT → PATCH 변경
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        difficulty,
+      } as UpdateDifficultyRequest),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update difficulty: ${response.statusText}`);
     }
 
     return await response.json();

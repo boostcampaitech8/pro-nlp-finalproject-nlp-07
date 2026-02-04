@@ -14,10 +14,12 @@ interface SendMessageResponse {
 export const chatService = {
   /**
    * 메시지 전송 및 AI 응답 받기
+   * ✅ useSupervisor 파라미터 추가
    */
   async sendMessage(
     sessionId: string,
-    userText: string
+    userText: string,
+    useSupervisor: boolean = false // ✅ 기본값 false로 설정
   ): Promise<{ response: string; coachFeedback?: string }> {
     try {
       const response = await fetch('/api/v1/agent', {
@@ -28,7 +30,7 @@ export const chatService = {
         body: JSON.stringify({
           session_id: sessionId,
           user_text: userText,
-          use_supervisor: false,
+          use_supervisor: useSupervisor, // ✅ 파라미터 사용
         } as SendMessageRequest),
       });
 
@@ -40,7 +42,7 @@ export const chatService = {
 
       console.log('Agent response:', data);
 
-      // 코치 피드백 처리 (나중에 구현)
+      // 코치 피드백 처리
       let coachFeedback: string | undefined;
       if (data.coach && Object.keys(data.coach).length > 0) {
         console.log('Coach feedback received:', data.coach);
