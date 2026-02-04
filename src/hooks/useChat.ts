@@ -1,61 +1,57 @@
-import { useState, useCallback } from 'react';
-import type { Message, Chat, Role } from '../types';
+import { useState } from 'react';
+import type { Message, Chat } from '../types';
 
-export const useChat = () => {
+interface UseChatReturn {
+  messages: Message[];
+  chatHistories: Chat[];
+  currentChatId: string | null;
+  isWaitingForResponse: boolean;
+  addMessage: (content: string, role: Message['role']) => void;
+  createChat: (title: string) => void;
+  loadChat: (chatId: string) => void;
+  setWaitingForResponse: (waiting: boolean) => void;
+}
+
+export const useChat = (): UseChatReturn => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatHistories, setChatHistories] = useState<Chat[]>([]);
-  const [currentChatId, setCurrentChatId] = useState<number | null>(null);
+  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
 
-  const formatTimestamp = useCallback(() => {
-    return new Date().toLocaleTimeString('ko-KR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }, []);
+  const addMessage = (content: string, role: Message['role']) => {
+    const newMessage: Message = {
+      id: Date.now(),
+      content,
+      role,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, newMessage]);
+  };
 
-  const addMessage = useCallback((content: string, role: Role) => {
-    const timestamp = formatTimestamp();
-    const message: Message = { content, role, timestamp };
-    
-    setMessages(prev => [...prev, message]);
-    
-    if (currentChatId) {
-      setChatHistories(prev => 
-        prev.map(chat => 
-          chat.id === currentChatId
-            ? { ...chat, messages: [...chat.messages, message] }
-            : chat
-        )
-      );
-    }
-    
-    return message;
-  }, [currentChatId, formatTimestamp]);
+  const createChat = (title: string) => {
+    const newChat: Chat = {
+      id: `chat_${Date.now()}`,
+      title,
+      messages: [],
+      messageCount: 0,
+      timestamp: new Date(),
+    };
+    setChatHistories((prev) => [newChat, ...prev]);
+    setCurrentChatId(newChat.id);
+  };
 
-  const createChat = useCallback((title: string) => {
-    const chatId = Date.now();
-    const newChat: Chat = { id: chatId, title, messages: [] };
-    
-    setChatHistories(prev => [...prev, newChat]);
-    setCurrentChatId(chatId);
-    setMessages([]);
-    
-    return newChat;
-  }, []);
-
-  const loadChat = useCallback((chatId: number) => {
-    const chat = chatHistories.find(c => c.id === chatId);
-    if (chat) {
+  const loadChat = (chatId: string) => {
+    const chat = chatHistories.find((c) => c.id === chatId);
+    if (chat && chat.messages) {
+      setMessages(chat.messages);
       setCurrentChatId(chatId);
-      setMessages([...chat.messages]);
     }
-  }, [chatHistories]);
+  };
 
-  const resetChat = useCallback(() => {
-    setMessages([]);
-    setCurrentChatId(null);
-  }, []);
+  // ✅ setWaitingForResponse를 setIsWaitingForResponse로 매핑
+  const setWaitingForResponse = (waiting: boolean) => {
+    setIsWaitingForResponse(waiting);
+  };
 
   return {
     messages,
@@ -65,7 +61,6 @@ export const useChat = () => {
     addMessage,
     createChat,
     loadChat,
-    resetChat,
-    setWaitingForResponse: setIsWaitingForResponse
+    setWaitingForResponse,
   };
 };

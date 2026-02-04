@@ -5,13 +5,14 @@ import { LoadingScreen } from '../components/Common/LoadingScreen';
 import { useChat } from '../hooks/useChat';
 import { chatService } from '../services/chatService';
 import { sessionService } from '../services/sessionService';
+import { userService } from '../services/userService';
+import type { Chat } from '../types';
 
 interface LocationState {
   persona?: string;
   situation?: string;
 }
 
-// ✅ Debounce 함수
 function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -34,12 +35,15 @@ export const ChatPage: React.FC = () => {
   const [personaName, setPersonaName] = useState<string>('상대방');
   
   const [difficulty, setDifficulty] = useState(2);
-  const [useSupervisor, setUseSupervisor] = useState(false); // ✅ 기본값 false
+  const [useSupervisor, setUseSupervisor] = useState(false);
+  
+  const [chatHistories, setChatHistories] = useState<Chat[]>([]);
   
   const chatState = useChat();
   const hasInitialized = useRef(false);
 
-  // ✅ Debounced 난이도 업데이트 함수
+  const userId = userService.getUserId() || '';
+
   const debouncedUpdateDifficulty = useCallback(
     debounce(async (sessionId: string, level: number) => {
       try {
@@ -48,10 +52,34 @@ export const ChatPage: React.FC = () => {
       } catch (error) {
         console.error('❌ Failed to update difficulty:', error);
       }
-    }, 1000), // 1초 대기
+    }, 1000),
     []
   );
 
+  // 세션 목록 로드
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        console.log('Loading sessions for user:', userId);
+        const response = await sessionService.getUserSessions(userId);
+        
+        const chats: Chat[] = response.sessions.map(session => ({
+          id: session.session_id,
+          title: `${session.persona_name} 연습`,
+          timestamp: new Date(session.created_at),
+          messageCount: session.message_count,
+        }));
+
+        setChatHistories(chats);
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+      }
+    };
+
+    loadSessions();
+  }, [userId]);
+
+  // ✅ 채팅 초기화 - 메시지 조회 먼저, 없으면 start
   useEffect(() => {
     if (hasInitialized.current) {
       return;
@@ -69,27 +97,63 @@ export const ChatPage: React.FC = () => {
       try {
         console.log('Initializing chat with session:', sessionId);
 
-        if (persona) {
-          setPersonaName(persona);
+        // ✅ 1. 무조건 메시지 조회부터 시도
+        try {
+          const messagesData = await sessionService.getSessionMessages(sessionId);
+          console.log('📂 Messages loaded:', messagesData);
+
+          // ✅ 메시지가 있으면 표시
+          if (messagesData.messages && messagesData.messages.length > 0) {
+            setPersonaName(messagesData.persona_name);
+            setDifficulty(messagesData.difficulty);
+
+            const title = `${messagesData.persona_name} 연습`;
+            chatState.createChat(title);
+
+            // 메시지 변환 및 추가
+            messagesData.messages.forEach((msg) => {
+              if (msg.role === 'system' && msg.content === '[세션 시작]') {
+                const scenarioInfo = `📌 연습 시나리오\n상대방: ${messagesData.persona_name}\n상황: ${messagesData.role_description}`;
+                chatState.addMessage(scenarioInfo, 'system');
+              } else if (msg.role === 'persona') {
+                chatState.addMessage(msg.content, 'assistant');
+              } else if (msg.role === 'user') {
+                chatState.addMessage(msg.content, 'user');
+              } else if (msg.role === 'coach') {
+                chatState.addMessage(msg.content, 'coach');
+              }
+            });
+
+            setIsLoading(false);
+            return; // ✅ 메시지 있으면 여기서 종료
+          }
+        } catch (error) {
+          console.log('⚠️ No messages found, will start new session');
         }
 
-        const title = persona ? `${persona} 연습` : '새 대화';
+        // ✅ 2. 메시지가 없으면 start 호출
+        if (!persona || !situation) {
+          throw new Error('No scenario information for new session');
+        }
+
+        console.log('📌 Starting new session');
+        
+        setPersonaName(persona);
+        const title = `${persona} 연습`;
         chatState.createChat(title);
 
-        if (persona && situation) {
-          const scenarioInfo = `📌 연습 시나리오\n상대방: ${persona}\n상황: ${situation}`;
-          chatState.addMessage(scenarioInfo, 'system');
-        }
+        const scenarioInfo = `📌 연습 시나리오\n상대방: ${persona}\n상황: ${situation}`;
+        chatState.addMessage(scenarioInfo, 'system');
 
-        console.log('Starting agent...');
         const agentResponse = await sessionService.startAgent(sessionId);
         console.log('Agent started:', agentResponse);
 
         chatState.addMessage(agentResponse.opening_message, 'assistant');
+
       } catch (error) {
         console.error('Failed to initialize chat:', error);
         chatState.addMessage(
-          '대화 시작에 실패했습니다. 홈으로 돌아가 다시 시도해주세요.',
+          '대화를 불러오는데 실패했습니다. 홈으로 돌아가 다시 시도해주세요.',
           'system'
         );
         hasInitialized.current = false;
@@ -110,7 +174,6 @@ export const ChatPage: React.FC = () => {
     chatState.setWaitingForResponse(true);
 
     try {
-      // ✅ useSupervisor 파라미터 전달
       console.log('Sending message with use_supervisor:', useSupervisor);
       const result = await chatService.sendMessage(sessionId, messageText, useSupervisor);
       console.log('Received response:', result);
@@ -131,7 +194,6 @@ export const ChatPage: React.FC = () => {
     }
   };
 
-  // ✅ 난이도 변경 - Debounce로 DB 업데이트
   const handleDifficultyChange = (level: number) => {
     setDifficulty(level);
     console.log('🎯 Difficulty UI changed to:', level);
@@ -141,7 +203,6 @@ export const ChatPage: React.FC = () => {
     }
   };
 
-  // ✅ 정밀 모드 토글 - 로컬 상태만 변경
   const handleSupervisorToggle = (enabled: boolean) => {
     setUseSupervisor(enabled);
     console.log('🔧 Supervisor toggled:', enabled);
@@ -157,8 +218,9 @@ export const ChatPage: React.FC = () => {
     navigate('/');
   };
 
-  const handleSelectChat = (chatId: number) => {
-    chatState.loadChat(chatId);
+  const handleSelectChat = (selectedSessionId: string) => {
+    navigate(`/chat/${selectedSessionId}`);
+    window.location.reload();
   };
 
   const handleSettings = () => {
@@ -172,8 +234,8 @@ export const ChatPage: React.FC = () => {
   return (
     <AppLayout
       messages={chatState.messages}
-      chatHistories={chatState.chatHistories}
-      currentChatId={chatState.currentChatId}
+      chatHistories={chatHistories}
+      currentChatId={sessionId || null}
       isWaitingForResponse={chatState.isWaitingForResponse}
       inputValue={inputValue}
       onInputChange={setInputValue}

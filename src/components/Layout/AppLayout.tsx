@@ -8,19 +8,18 @@ import type { Message, Chat } from '../../types';
 interface AppLayoutProps {
   messages: Message[];
   chatHistories: Chat[];
-  currentChatId: number | null;
+  currentChatId: string | null;
   isWaitingForResponse: boolean;
   inputValue: string;
   onInputChange: (value: string) => void;
   onSendMessage: () => void;
   onNewChat: () => void;
-  onSelectChat: (chatId: number) => void;
+  onSelectChat: (sessionId: string) => void;
   onSettings: () => void;
   onSelectScenario: (persona: string, situation: string) => void;
   onCustomCreate: () => void;
   showScenarioSetup?: boolean;
   personaName?: string;
-  // ✅ 설정 관련 props 추가
   difficulty?: number;
   useSupervisor?: boolean;
   onDifficultyChange?: (level: number) => void;
@@ -41,7 +40,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onCustomCreate,
   showScenarioSetup = false,
   personaName,
-  // ✅ 설정 관련 props 기본값
   difficulty = 2,
   useSupervisor = true,
   onDifficultyChange = () => {},
@@ -49,8 +47,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onEndChat = () => {},
 }) => {
   const hasMessages = messages.length > 0;
-
-  // ✅ 타이틀 결정
   const headerTitle = personaName ? `${personaName}와의 대화` : 'AI Chatbot';
 
   return (
@@ -61,14 +57,15 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         onSelectChat={onSelectChat}
       />
       <div className="main-content">
-        {/* ✅ Header에 설정 props 전달 */}
+        {/* ✅ 항상 헤더 표시하되, showScenarioSetup일 때는 빈 헤더 */}
         <Header
-          title={headerTitle}
+          title={showScenarioSetup ? '' : headerTitle}
           onEndChat={onEndChat}
           difficulty={difficulty}
           useSupervisor={useSupervisor}
           onDifficultyChange={onDifficultyChange}
           onSupervisorToggle={onSupervisorToggle}
+          showActions={!showScenarioSetup} // ✅ 새 prop 추가
         />
         <ChatContainer
           messages={messages}
@@ -78,7 +75,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           showScenarioSetup={showScenarioSetup}
           personaName={personaName}
         />
-        {/* ✅ 시나리오 화면이 아니고 메시지가 있을 때만 입력창 표시 */}
         {!showScenarioSetup && hasMessages && (
           <MessageInput
             value={inputValue}

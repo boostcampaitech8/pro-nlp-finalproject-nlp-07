@@ -1,86 +1,80 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/Layout/AppLayout';
-import { CustomScenarioModal } from '../components/Common/CustomScenarioModal';
-import { LoadingScreen } from '../components/Common/LoadingScreen';
 import { sessionService } from '../services/sessionService';
 import { userService } from '../services/userService';
+import { LoadingScreen } from '../components/Common/LoadingScreen';
+import type { Chat } from '../types';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
-  const [showCustomModal, setShowCustomModal] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+  const [chatHistories, setChatHistories] = useState<Chat[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // ✅ localStorage에서 바로 가져오기 (무조건 있음)
+  const userId = userService.getUserId() || '';
+
+  // ✅ 페이지 로드 시 세션 목록 불러오기
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        console.log('Loading sessions for user:', userId);
+        const response = await sessionService.getUserSessions(userId);
+        
+        const chats: Chat[] = response.sessions.map(session => ({
+          id: session.session_id,
+          title: `${session.persona_name} 연습`,
+          timestamp: new Date(session.created_at),
+          messageCount: session.message_count,
+        }));
+
+        console.log('Loaded sessions:', chats);
+        setChatHistories(chats);
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSessions();
+  }, [userId]);
 
   const handleSelectScenario = async (persona: string, situation: string) => {
-    setIsCreating(true);
-
     try {
-      const userId = userService.getUserId();
-      if (!userId) {
-        throw new Error('User ID not found');
-      }
-
-      console.log('Creating session...', { userId, persona, situation });
-
-      const sessionResponse = await sessionService.createSession(
-        userId,
-        persona,
-        situation
-      );
-
-      console.log('Session created:', sessionResponse);
-
-      navigate(`/chat/${sessionResponse.session_id}`, {
-        state: { persona, situation }
+      const response = await sessionService.createSession(userId, persona, situation);
+      navigate(`/chat/${response.session_id}`, {
+        state: { persona, situation },
       });
     } catch (error) {
       console.error('Failed to create session:', error);
-      alert('세션 생성에 실패했습니다. 다시 시도해주세요.');
-      setIsCreating(false);
     }
   };
 
-  const handleCustomCreate = () => {
-    setShowCustomModal(true);
+  const handleSelectChat = (sessionId: string) => {
+    navigate(`/chat/${sessionId}`);
   };
 
-  const handleCustomSubmit = (persona: string, situation: string) => {
-    setShowCustomModal(false);
-    handleSelectScenario(persona, situation);
-  };
-
-  const handleSettings = () => {
-    console.log('Settings clicked');
-  };
-
-  if (isCreating) {
-    return <LoadingScreen message="대화 준비 중..." />;
+  if (isLoading) {
+    return <LoadingScreen message="대화 목록을 불러오는 중..." />;
   }
 
   return (
-    <>
-      <AppLayout
-        messages={[]} // ✅ 빈 배열
-        chatHistories={[]} // ✅ 빈 배열
-        currentChatId={null} // ✅ null
-        isWaitingForResponse={false}
-        inputValue=""
-        onInputChange={() => {}} // ✅ 빈 함수
-        onSendMessage={() => {}} // ✅ 빈 함수
-        onNewChat={() => navigate('/')} // ✅ 홈으로 (새로고침 효과)
-        onSelectChat={() => {}} // ✅ 빈 함수
-        onSettings={handleSettings}
-        onSelectScenario={handleSelectScenario}
-        onCustomCreate={handleCustomCreate}
-        showScenarioSetup={true} // ✅ 시나리오 선택 화면 표시
-      />
-
-      {showCustomModal && (
-        <CustomScenarioModal
-          onSubmit={handleCustomSubmit}
-          onClose={() => setShowCustomModal(false)}
-        />
-      )}
-    </>
+    <AppLayout
+      messages={[]}
+      chatHistories={chatHistories}
+      currentChatId={null}
+      isWaitingForResponse={false}
+      inputValue=""
+      onInputChange={() => {}}
+      onSendMessage={() => {}}
+      onNewChat={() => navigate('/')}
+      onSelectChat={handleSelectChat}
+      onSettings={() => {}}
+      onSelectScenario={handleSelectScenario}
+      onCustomCreate={() => {}}
+      showScenarioSetup={true}
+      personaName=""
+    />
   );
 };
