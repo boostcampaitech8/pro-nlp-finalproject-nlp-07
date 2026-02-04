@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import Optional
 
 from app.db.database import get_db
 from app.models.session import ChatSession
@@ -9,7 +10,9 @@ from app.models.feedback import SessionFeedback
 from app.schemas.session import (
     SessionCreate,
     SessionResponse,
-    SessionDifficultyUpdate,  # ✅ 추가
+    SessionListResponse,
+    SessionListItem,
+    SessionDifficultyUpdate,
     SessionEndRequest,
     SessionEndResponse
 )
@@ -37,12 +40,69 @@ async def create_session(
     return SessionResponse.model_validate(session)
 
 
+# ✅ 추가: 사용자별 세션 목록 조회
+@router.get("/user/{user_id}", response_model=SessionListResponse)
+async def get_user_sessions(
+    user_id: str,
+    limit: int = Query(default=20, ge=1, le=100, description="최대 개수"),
+    offset: int = Query(default=0, ge=0, description="시작 위치"),
+    status: Optional[str] = Query(default=None, description="상태 필터 (active, completed)"),
+    db: Session = Depends(get_db)
+):
+    """
+    사용자의 세션 목록 조회 (최신순)
+    
+    - **user_id**: 사용자 ID (anon_<UUID> 형식)
+    - **limit**: 최대 개수 (기본 20, 최대 100)
+    - **offset**: 시작 위치 (페이징)
+    - **status**: 상태 필터 (active, completed, 없으면 전체)
+    
+    Returns:
+        사용자의 세션 목록 (최신순 정렬)
+    """
+    
+    # 세션 목록 조회
+    sessions = SessionService.get_user_sessions(
+        user_id=user_id,
+        db=db,
+        limit=limit,
+        offset=offset,
+        status_filter=status
+    )
+    
+    # 총 개수
+    total = SessionService.count_user_sessions(
+        user_id=user_id,
+        db=db,
+        status_filter=status
+    )
+    
+    # 응답 구성
+    session_items = [
+        SessionListItem(
+            session_id=s.session_id,
+            persona_name=s.persona_name,
+            difficulty=s.difficulty,
+            status=s.status,
+            created_at=s.created_at,
+            message_count=s.message_count
+        )
+        for s in sessions
+    ]
+    
+    return {
+        "user_id": user_id,
+        "total_sessions": total,
+        "sessions": session_items
+    }
+
+
 @router.get("/{session_id}", response_model=SessionResponse)
 async def get_session(
     session_id: str,
     db: Session = Depends(get_db)
 ):
-    """세션 정보 조회"""
+    """세션 상세 정보 조회"""
     session = SessionService.get_session(session_id, db)
     
     if not session:
@@ -89,9 +149,7 @@ async def end_session(
     end_request: SessionEndRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    세션 종료 및 최종 피드백 생성
-    """
+    """세션 종료 및 최종 피드백 생성"""
     
     # 1. 세션 조회
     session = db.query(ChatSession).filter(

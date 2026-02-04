@@ -1,5 +1,5 @@
 from pydantic import BaseModel, validator, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
 import re
 
@@ -10,7 +10,7 @@ class SessionCreate(BaseModel):
     
     persona_name: str = Field(..., description="페르소나 이름")
     role_description: str = Field(..., description="역할 설명")
-    difficulty: int = Field(default=2, ge=1, le=3, description="난이도 (1-3)")  # ✅ 1~3
+    difficulty: int = Field(default=2, ge=1, le=3, description="난이도 (1-3)")
     
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     
@@ -58,9 +58,31 @@ class SessionResponse(BaseModel):
         return super().model_validate(obj, **kwargs)
 
 
+# ✅ 추가: 세션 목록 아이템 (간소화된 정보)
+class SessionListItem(BaseModel):
+    """세션 목록 아이템"""
+    session_id: str
+    persona_name: str
+    difficulty: int
+    status: str
+    created_at: datetime
+    message_count: int
+    
+    class Config:
+        from_attributes = True
+
+
+# ✅ 추가: 세션 목록 응답
+class SessionListResponse(BaseModel):
+    """세션 목록 응답"""
+    user_id: str
+    total_sessions: int
+    sessions: List[SessionListItem]
+
+
 class SessionDifficultyUpdate(BaseModel):
     """세션 난이도 수정 요청"""
-    difficulty: int = Field(..., ge=1, le=3, description="난이도 (1-3)")  # ✅ 1~3
+    difficulty: int = Field(..., ge=1, le=3, description="난이도 (1-3)")
 
 
 class SessionEndRequest(BaseModel):

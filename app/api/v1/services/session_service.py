@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import List
 import uuid
 
 from app.models.session import ChatSession
@@ -48,6 +49,71 @@ class SessionService:
             ChatSession.session_id == session_id
         ).first()
     
+    # ✅ 추가: 사용자별 세션 목록 조회
+    @staticmethod
+    def get_user_sessions(
+        user_id: str, 
+        db: Session,
+        limit: int = 20,
+        offset: int = 0,
+        status_filter: str = None
+    ) -> List[ChatSession]:
+        """
+        사용자의 세션 목록 조회
+        
+        Args:
+            user_id: 사용자 ID
+            db: 데이터베이스 세션
+            limit: 최대 개수 (기본 20개)
+            offset: 시작 위치 (페이징)
+            status_filter: 상태 필터 ('active', 'completed', None=전체)
+            
+        Returns:
+            세션 목록 (최신순)
+        """
+        query = db.query(ChatSession).filter(
+            ChatSession.user_id == user_id
+        )
+        
+        # 상태 필터
+        if status_filter:
+            query = query.filter(ChatSession.status == status_filter)
+        
+        # 최신순 정렬
+        query = query.order_by(ChatSession.created_at.desc())
+        
+        # 페이징
+        query = query.offset(offset).limit(limit)
+        
+        return query.all()
+    
+    # ✅ 추가: 사용자 세션 총 개수
+    @staticmethod
+    def count_user_sessions(
+        user_id: str, 
+        db: Session,
+        status_filter: str = None
+    ) -> int:
+        """
+        사용자의 총 세션 수 조회
+        
+        Args:
+            user_id: 사용자 ID
+            db: 데이터베이스 세션
+            status_filter: 상태 필터
+            
+        Returns:
+            총 세션 수
+        """
+        query = db.query(ChatSession).filter(
+            ChatSession.user_id == user_id
+        )
+        
+        if status_filter:
+            query = query.filter(ChatSession.status == status_filter)
+        
+        return query.count()
+    
     @staticmethod
     def validate_session(session_id: str, db: Session) -> ChatSession:
         """세션 유효성 검증"""
@@ -68,27 +134,13 @@ class SessionService:
         session.updated_at = datetime.utcnow()
         db.commit()
     
-    # ✅ 추가: Difficulty 업데이트
     @staticmethod
     def update_difficulty(
         session_id: str, 
         new_difficulty: int, 
         db: Session
     ) -> ChatSession:
-        """
-        세션의 난이도 수정
-        
-        Args:
-            session_id: 세션 ID
-            new_difficulty: 새로운 난이도 (1-5)
-            db: 데이터베이스 세션
-            
-        Returns:
-            수정된 ChatSession 객체
-            
-        Raises:
-            ValueError: 세션이 없거나 종료된 경우
-        """
+        """세션의 난이도 수정"""
         session = SessionService.validate_session(session_id, db)
         
         old_difficulty = session.difficulty
