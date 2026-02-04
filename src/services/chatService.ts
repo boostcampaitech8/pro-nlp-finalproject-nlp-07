@@ -4,22 +4,28 @@ interface SendMessageRequest {
   use_supervisor?: boolean;
 }
 
+// ✅ coach 응답 타입 정의
+interface CoachResponse {
+  intervene: boolean;
+  rewrite: string;
+  signals: string[];
+}
+
 interface SendMessageResponse {
   response: string;
   success: boolean;
-  coach?: any;
+  coach?: CoachResponse; // ✅ 타입 지정
   supervisor?: any;
 }
 
 export const chatService = {
   /**
    * 메시지 전송 및 AI 응답 받기
-   * ✅ useSupervisor 파라미터 추가
    */
   async sendMessage(
     sessionId: string,
     userText: string,
-    useSupervisor: boolean = false // ✅ 기본값 false로 설정
+    useSupervisor: boolean = false
   ): Promise<{ response: string; coachFeedback?: string }> {
     try {
       const response = await fetch('/api/v1/agent', {
@@ -30,7 +36,7 @@ export const chatService = {
         body: JSON.stringify({
           session_id: sessionId,
           user_text: userText,
-          use_supervisor: useSupervisor, // ✅ 파라미터 사용
+          use_supervisor: useSupervisor,
         } as SendMessageRequest),
       });
 
@@ -42,12 +48,11 @@ export const chatService = {
 
       console.log('Agent response:', data);
 
-      // 코치 피드백 처리
+      // ✅ 코치 피드백 처리 - intervene이 true이고 rewrite가 있을 때만
       let coachFeedback: string | undefined;
-      if (data.coach && Object.keys(data.coach).length > 0) {
-        console.log('Coach feedback received:', data.coach);
-        // TODO: coach 데이터 형식 확인 후 처리
-        // coachFeedback = data.coach.message; // 예시
+      if (data.coach && data.coach.intervene && data.coach.rewrite) {
+        console.log('Coach feedback received:', data.coach.rewrite);
+        coachFeedback = data.coach.rewrite;
       }
 
       return {

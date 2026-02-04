@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '../components/Layout/AppLayout';
-import { LoadingScreen } from '../components/Common/LoadingScreen';
 import { useChat } from '../hooks/useChat';
 import { chatService } from '../services/chatService';
 import { sessionService } from '../services/sessionService';
@@ -31,7 +30,7 @@ export const ChatPage: React.FC = () => {
   const { persona, situation } = (location.state as LocationState) || {};
 
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // ✅ 채팅 영역 로딩용으로 유지
   const [personaName, setPersonaName] = useState<string>('상대방');
   
   const [difficulty, setDifficulty] = useState(2);
@@ -79,7 +78,7 @@ export const ChatPage: React.FC = () => {
     loadSessions();
   }, [userId]);
 
-  // ✅ 채팅 초기화 - 메시지 조회 먼저, 없으면 start
+  // ✅ 채팅 초기화
   useEffect(() => {
     if (hasInitialized.current) {
       return;
@@ -97,12 +96,11 @@ export const ChatPage: React.FC = () => {
       try {
         console.log('Initializing chat with session:', sessionId);
 
-        // ✅ 1. 무조건 메시지 조회부터 시도
+        // ✅ 1. 메시지 조회 시도
         try {
           const messagesData = await sessionService.getSessionMessages(sessionId);
           console.log('📂 Messages loaded:', messagesData);
 
-          // ✅ 메시지가 있으면 표시
           if (messagesData.messages && messagesData.messages.length > 0) {
             setPersonaName(messagesData.persona_name);
             setDifficulty(messagesData.difficulty);
@@ -110,7 +108,6 @@ export const ChatPage: React.FC = () => {
             const title = `${messagesData.persona_name} 연습`;
             chatState.createChat(title);
 
-            // 메시지 변환 및 추가
             messagesData.messages.forEach((msg) => {
               if (msg.role === 'system' && msg.content === '[세션 시작]') {
                 const scenarioInfo = `📌 연습 시나리오\n상대방: ${messagesData.persona_name}\n상황: ${messagesData.role_description}`;
@@ -125,13 +122,13 @@ export const ChatPage: React.FC = () => {
             });
 
             setIsLoading(false);
-            return; // ✅ 메시지 있으면 여기서 종료
+            return;
           }
         } catch (error) {
           console.log('⚠️ No messages found, will start new session');
         }
 
-        // ✅ 2. 메시지가 없으면 start 호출
+        // ✅ 2. 새 세션 시작
         if (!persona || !situation) {
           throw new Error('No scenario information for new session');
         }
@@ -178,11 +175,14 @@ export const ChatPage: React.FC = () => {
       const result = await chatService.sendMessage(sessionId, messageText, useSupervisor);
       console.log('Received response:', result);
 
-      chatState.addMessage(result.response, 'assistant');
-
+      // ✅ 코치 피드백 먼저
       if (result.coachFeedback) {
         chatState.addMessage(result.coachFeedback, 'coach');
       }
+
+      // ✅ AI 응답 나중에
+      chatState.addMessage(result.response, 'assistant');
+
     } catch (error) {
       console.error('Failed to get response:', error);
       chatState.addMessage(
@@ -227,10 +227,7 @@ export const ChatPage: React.FC = () => {
     console.log('Settings clicked');
   };
 
-  if (isLoading) {
-    return <LoadingScreen message="대화 불러오는 중..." />;
-  }
-
+  // ✅ 전체 화면 로딩 제거, AppLayout으로 isLoading 전달
   return (
     <AppLayout
       messages={chatState.messages}
@@ -252,6 +249,7 @@ export const ChatPage: React.FC = () => {
       onDifficultyChange={handleDifficultyChange}
       onSupervisorToggle={handleSupervisorToggle}
       onEndChat={handleEndChat}
+      isLoading={isLoading} // ✅ 로딩 상태 전달
     />
   );
 };

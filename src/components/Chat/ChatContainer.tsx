@@ -1,10 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { ScenarioSetup } from './ScenarioSetup';
 import { TypingIndicator } from './TypingIndicator';
 import type { Message } from '../../types';
 import './ChatContainer.css';
-
 
 interface ChatContainerProps {
   messages: Message[];
@@ -13,8 +12,8 @@ interface ChatContainerProps {
   onCustomCreate: () => void;
   showScenarioSetup?: boolean;
   personaName?: string;
+  isLoading?: boolean; // ✅ 로딩 prop 추가
 }
-
 
 export const ChatContainer: React.FC<ChatContainerProps> = ({
   messages,
@@ -23,11 +22,10 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   onCustomCreate,
   showScenarioSetup = false,
   personaName,
+  isLoading = false, // ✅ 기본값 false
 }) => {
-  // ✅ 오토스크롤을 위한 ref
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // ✅ 메시지가 변경될 때마다 스크롤
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isWaitingForResponse]);
@@ -43,6 +41,17 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     );
   }
 
+  // ✅ 로딩 중일 때 로딩 표시
+  if (isLoading) {
+    return (
+      <div className="chat-container">
+        <div className="chat-loading">
+          <div className="loading-spinner"></div>
+          <p>대화를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (messages.length === 0) {
     return (
@@ -55,7 +64,6 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     );
   }
 
-
   return (
     <div className="chat-container">
       {messages.map((message, index) => (
@@ -66,7 +74,6 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
         />
       ))}
       {isWaitingForResponse && <TypingIndicator />}
-      {/* ✅ 스크롤 타겟 */}
       <div ref={messagesEndRef} />
     </div>
   );

@@ -27,3 +27,33 @@
 .chat-container::-webkit-scrollbar-thumb:hover {
   background: rgba(119, 124, 124, 0.5);
 }
+
+/* 채팅 로딩 표시 */
+.chat-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 1rem;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.chat-loading p {
+  font-size: 14px;
+  margin: 0;
+}

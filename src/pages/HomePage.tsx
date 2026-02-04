@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/Layout/AppLayout';
+import { CustomScenarioModal } from '../components/Common/CustomScenarioModal';
 import { sessionService } from '../services/sessionService';
 import { userService } from '../services/userService';
-import { LoadingScreen } from '../components/Common/LoadingScreen';
 import type { Chat } from '../types';
 
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [chatHistories, setChatHistories] = useState<Chat[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // ✅ isLoading 제거
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
 
-  // ✅ localStorage에서 바로 가져오기 (무조건 있음)
   const userId = userService.getUserId() || '';
 
-  // ✅ 페이지 로드 시 세션 목록 불러오기
   useEffect(() => {
     const loadSessions = async () => {
       try {
@@ -32,9 +31,8 @@ export const HomePage: React.FC = () => {
         setChatHistories(chats);
       } catch (error) {
         console.error('Failed to load sessions:', error);
-      } finally {
-        setIsLoading(false);
       }
+      // ✅ finally 블록 제거
     };
 
     loadSessions();
@@ -55,26 +53,53 @@ export const HomePage: React.FC = () => {
     navigate(`/chat/${sessionId}`);
   };
 
-  if (isLoading) {
-    return <LoadingScreen message="대화 목록을 불러오는 중..." />;
-  }
+  const handleCustomCreate = () => {
+    setIsCustomModalOpen(true);
+    console.log('✅ Custom modal opened');
+  };
 
+  const handleCustomModalClose = () => {
+    setIsCustomModalOpen(false);
+  };
+
+  const handleCustomScenarioSubmit = async (persona: string, situation: string) => {
+    try {
+      const response = await sessionService.createSession(userId, persona, situation);
+      setIsCustomModalOpen(false);
+      navigate(`/chat/${response.session_id}`, {
+        state: { persona, situation },
+      });
+    } catch (error) {
+      console.error('Failed to create custom session:', error);
+    }
+  };
+
+  // ✅ 로딩 화면 제거 - 바로 렌더링
   return (
-    <AppLayout
-      messages={[]}
-      chatHistories={chatHistories}
-      currentChatId={null}
-      isWaitingForResponse={false}
-      inputValue=""
-      onInputChange={() => {}}
-      onSendMessage={() => {}}
-      onNewChat={() => navigate('/')}
-      onSelectChat={handleSelectChat}
-      onSettings={() => {}}
-      onSelectScenario={handleSelectScenario}
-      onCustomCreate={() => {}}
-      showScenarioSetup={true}
-      personaName=""
-    />
+    <>
+      <AppLayout
+        messages={[]}
+        chatHistories={chatHistories}
+        currentChatId={null}
+        isWaitingForResponse={false}
+        inputValue=""
+        onInputChange={() => {}}
+        onSendMessage={() => {}}
+        onNewChat={() => navigate('/')}
+        onSelectChat={handleSelectChat}
+        onSettings={() => {}}
+        onSelectScenario={handleSelectScenario}
+        onCustomCreate={handleCustomCreate}
+        showScenarioSetup={true}
+        personaName=""
+      />
+      
+      {isCustomModalOpen && (
+        <CustomScenarioModal
+          onSubmit={handleCustomScenarioSubmit}
+          onClose={handleCustomModalClose}
+        />
+      )}
+    </>
   );
 };

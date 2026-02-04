@@ -25,6 +25,7 @@ interface AppLayoutProps {
   onDifficultyChange?: (level: number) => void;
   onSupervisorToggle?: (enabled: boolean) => void;
   onEndChat?: () => void;
+  isLoading?: boolean; // ✅ 로딩 prop 추가
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -45,6 +46,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onDifficultyChange = () => {},
   onSupervisorToggle = () => {},
   onEndChat = () => {},
+  isLoading = false, // ✅ 기본값 false
 }) => {
   const hasMessages = messages.length > 0;
   const headerTitle = personaName ? `${personaName}와의 대화` : 'AI Chatbot';
@@ -57,7 +59,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         onSelectChat={onSelectChat}
       />
       <div className="main-content">
-        {/* ✅ 항상 헤더 표시하되, showScenarioSetup일 때는 빈 헤더 */}
         <Header
           title={showScenarioSetup ? '' : headerTitle}
           onEndChat={onEndChat}
@@ -65,7 +66,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           useSupervisor={useSupervisor}
           onDifficultyChange={onDifficultyChange}
           onSupervisorToggle={onSupervisorToggle}
-          showActions={!showScenarioSetup} // ✅ 새 prop 추가
+          showActions={!showScenarioSetup}
         />
         <ChatContainer
           messages={messages}
@@ -74,6 +75,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           onCustomCreate={onCustomCreate}
           showScenarioSetup={showScenarioSetup}
           personaName={personaName}
+          isLoading={isLoading} // ✅ 로딩 전달
         />
         {!showScenarioSetup && hasMessages && (
           <MessageInput
