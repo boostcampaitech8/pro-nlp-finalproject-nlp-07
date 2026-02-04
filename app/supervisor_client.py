@@ -1,6 +1,6 @@
 # app/supervisor_client.py
 from __future__ import annotations
-
+import os
 import json
 from typing import Any, Dict, Optional
 
@@ -91,7 +91,29 @@ def call_supervisor_validate(
     max_tokens: int = 450,
 ) -> Dict[str, Any]:
     """Synchronous. Wrap with asyncio.to_thread in async code."""
+    
+    if os.getenv("SUPERVISOR_FORCE_RERUN") == "1":
+        target = os.getenv("SUPERVISOR_FORCE_TARGET", "persona")  # coach | persona | both
+        out = _default_out(skipped_coach=False)  # 일단 기본 스키마 확보
 
+        if target in ("coach", "both"):
+            out["coach"] = {
+                "ok": False,
+                "reasons": ["forced_rerun_for_manual_test"],
+                "rerun": True,
+                "hint": "manual test: force rerun coach once",
+            }
+
+        if target in ("persona", "both"):
+            out["persona"] = {
+                "ok": False,
+                "reasons": ["forced_rerun_for_manual_test"],
+                "rerun": True,
+                "hint": "manual test: force rerun persona once",
+            }
+
+        out["ok"] = False
+        return out
     coach_out = coach_out or {}
     skipped_coach = (coach_out.get("intervene") is False)
 
