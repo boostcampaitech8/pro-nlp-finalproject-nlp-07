@@ -1,0 +1,145 @@
+/* Message Bubble 컨테이너 */
+.message-bubble {
+  display: block;
+  margin: 12px 8px; /* ✅ 16px → 8px로 줄임 */
+  clear: both;
+  animation: slideIn 0.3s ease-out;
+}
+
+.message-bubble.user {
+  text-align: right;
+}
+
+.message-bubble.assistant {
+  text-align: left;
+}
+
+/* 배지 */
+.user-badge,
+.persona-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #10a37f;
+  margin-bottom: 4px;
+  opacity: 0.8;
+  display: block;
+}
+
+/* 메시지 내용 */
+.message-content {
+  display: inline-block;
+  max-width: 80%; /* ✅ 70% → 80%로 늘림 */
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: left;
+  
+  /* 텍스트 줄바꿈 */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: pre-wrap;
+  
+  /* 박스 모델 */
+  box-sizing: border-box;
+  vertical-align: top;
+}
+
+/* 사용자 메시지 */
+.message-bubble.user .message-content {
+  background-color: #10a37f;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+/* AI 메시지 */
+.message-bubble.assistant .message-content {
+  background-color: #f0f0f0;
+  color: #1f2121;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-bottom-left-radius: 4px;
+}
+
+/* 다크모드 */
+@media (prefers-color-scheme: dark) {
+  .message-bubble.assistant .message-content {
+    background-color: #2d2d2d;
+    color: #f5f5f5;
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* 시스템 메시지 */
+.system-message {
+  display: block;
+  margin: 24px 8px; /* ✅ 16px → 8px로 줄임 */
+  text-align: center;
+}
+
+.system-message-content {
+  display: inline-block;
+  background: linear-gradient(135deg, rgba(50, 184, 198, 0.1) 0%, rgba(41, 150, 161, 0.15) 100%);
+  border: 1px solid rgba(50, 184, 198, 0.3);
+  border-radius: 12px;
+  padding: 16px 20px;
+  max-width: 600px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #f5f5f5;
+  word-break: break-word;
+  box-sizing: border-box;
+}
+
+/* 코치 메시지 */
+.system-message.coach .system-message-content {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.15) 100%);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.system-message-content > div:first-child {
+  font-weight: 600;
+  color: #32b8c6;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+
+.system-message.coach .system-message-content > div:first-child {
+  color: #22c55e;
+}
+
+.system-message-content > div:not(:first-child) {
+  color: rgba(245, 245, 245, 0.9);
+  margin-top: 4px;
+}
+
+/* 애니메이션 */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .message-content {
+    max-width: 90%; /* ✅ 85% → 90%로 늘림 */
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  
+  .message-bubble {
+    margin: 8px 6px; /* ✅ 12px → 6px로 줄임 */
+  }
+  
+  .user-badge,
+  .persona-badge {
+    font-size: 11px;
+  }
+}

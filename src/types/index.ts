@@ -1,6 +1,7 @@
 export type Role = 'user' | 'assistant' | 'coach' | 'system';
 
 export interface Message {
+  id?: number; // ✅ 추가
   content: string;
   role: Role;
   timestamp: string;

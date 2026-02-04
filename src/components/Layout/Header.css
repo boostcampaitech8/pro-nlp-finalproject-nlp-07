@@ -1,0 +1,179 @@
+/* 대화 종료 버튼 */
+.end-chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background-color: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  color: #ef4444;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.end-chat-btn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+}
+
+.end-chat-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.end-chat-text {
+  font-size: 14px;
+}
+
+/* 설정 wrapper */
+.settings-wrapper {
+  position: relative;
+}
+
+/* 설정 드롭다운 */
+.settings-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 280px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: dropdownFadeIn 0.2s ease-out;
+  z-index: 1000;
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.settings-section {
+  padding: 8px 0;
+}
+
+.settings-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-description {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+
+.settings-divider {
+  height: 1px;
+  background-color: var(--color-border);
+  margin: 8px 0;
+}
+
+/* 난이도 선택 버튼 */
+.difficulty-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.difficulty-button {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.difficulty-button:hover {
+  background-color: rgba(16, 163, 127, 0.1);
+  border-color: rgba(16, 163, 127, 0.4);
+}
+
+.difficulty-button.active {
+  background-color: #10a37f;
+  border-color: #10a37f;
+  color: white;
+}
+
+/* Supervisor 토글 */
+.settings-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(119, 124, 124, 0.3);
+  border-radius: 24px;
+  transition: 0.3s;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: '';
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+
+input:checked + .toggle-slider {
+  background-color: #10a37f;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .end-chat-text {
+    display: none; /* 모바일에서는 텍스트 숨김 */
+  }
+
+  .settings-dropdown {
+    min-width: 240px;
+  }
+}

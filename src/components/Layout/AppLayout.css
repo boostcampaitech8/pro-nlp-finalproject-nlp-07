@@ -1,0 +1,15 @@
+/* 기존 스타일 유지하고 아래 추가 */
+
+.scenario-setup-container {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background-color: var(--color-bg-primary);
+}
+
+.scenario-setup-container .scenario-setup {
+  margin: 0 auto;
+}

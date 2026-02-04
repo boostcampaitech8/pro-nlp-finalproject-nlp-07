@@ -1,46 +1,60 @@
-// src/services/chatService.ts
+interface SendMessageRequest {
+  session_id: string;
+  user_text: string;
+  use_supervisor?: boolean;
+}
 
-interface ChatResponse {
+interface SendMessageResponse {
   response: string;
   success: boolean;
-  error?: string;
-  coachFeedback?: string;
+  coach?: any;
+  supervisor?: any;
 }
 
 export const chatService = {
-  // API 엔드포인트 URL
-  CHAT_ENDPOINT: '/api/v1/agent',
-
-  // 채팅 메시지 전송
-  async sendMessage(message: string): Promise<ChatResponse> {
+  /**
+   * 메시지 전송 및 AI 응답 받기
+   */
+  async sendMessage(
+    sessionId: string,
+    userText: string
+  ): Promise<{ response: string; coachFeedback?: string }> {
     try {
-      const response = await fetch(this.CHAT_ENDPOINT, {
+      const response = await fetch('/api/v1/agent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          "message": message
-        })
+          session_id: sessionId,
+          user_text: userText,
+          use_supervisor: false,
+        } as SendMessageRequest),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`Failed to send message: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      
+      const data: SendMessageResponse = await response.json();
+
+      console.log('Agent response:', data);
+
+      // 코치 피드백 처리 (나중에 구현)
+      let coachFeedback: string | undefined;
+      if (data.coach && Object.keys(data.coach).length > 0) {
+        console.log('Coach feedback received:', data.coach);
+        // TODO: coach 데이터 형식 확인 후 처리
+        // coachFeedback = data.coach.message; // 예시
+      }
+
       return {
-        response: data.response || data.message,
-        success: true
+        response: data.response,
+        coachFeedback,
       };
     } catch (error) {
-      console.error('Chat API Error:', error);
-      return {
-        response: '죄송합니다. 응답을 가져오는데 실패했습니다.',
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      console.error('Error sending message:', error);
+      throw error;
     }
-  }
+  },
 };
