@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import case
 from datetime import datetime
 from typing import Optional
 
 from app.db.database import get_db
 from app.models.session import ChatSession
-from app.models.agent import AgentMessage
+from app.models.message import Message  # ✅ 변경
 from app.models.feedback import SessionFeedback
 from app.schemas.session import (
     SessionCreate,
@@ -14,10 +15,13 @@ from app.schemas.session import (
     SessionListItem,
     SessionDifficultyUpdate,
     SessionEndRequest,
-    SessionEndResponse
+    SessionEndResponse,
+    MessageItem,
+    ConversationHistoryResponse
 )
 from app.api.v1.services.session_service import SessionService
 from app.api.v1.services.feedback_service import FeedbackService
+
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -40,7 +44,6 @@ async def create_session(
     return SessionResponse.model_validate(session)
 
 
-# ✅ 추가: 사용자별 세션 목록 조회
 @router.get("/user/{user_id}", response_model=SessionListResponse)
 async def get_user_sessions(
     user_id: str,
@@ -114,6 +117,76 @@ async def get_session(
     return SessionResponse.model_validate(session)
 
 
+@router.get("/{session_id}/messages", response_model=ConversationHistoryResponse)
+async def get_session_messages(
+    session_id: str,
+    limit: int = Query(default=100, ge=1, le=500, description="최대 개수"),
+    offset: int = Query(default=0, ge=0, description="시작 위치"),
+    db: Session = Depends(get_db)
+):
+    """
+    세션의 대화 기록 조회
+    
+    - **session_id**: 세션 ID (필수)
+    - **limit**: 최대 메시지 개수 (기본 100, 최대 500)
+    - **offset**: 시작 위치 (페이징)
+    
+    Returns:
+        세션의 전체 대화 기록 (시간순, role별)
+    """
+    
+    # 1. 세션 존재 확인
+    session = SessionService.get_session(session_id, db)
+    
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found"
+        )
+    
+    # 2. 메시지 조회 (✅ timestamp + role 순서로 정렬)
+    messages = db.query(Message).filter(
+        Message.session_id == session_id
+    ).order_by(
+        Message.timestamp.asc(),
+        # ✅ case 사용 (db.case → case)
+        case(
+            (Message.role == 'system', 1),
+            (Message.role == 'user', 2),
+            (Message.role == 'coach', 3),
+            (Message.role == 'persona', 4),
+            else_=5
+        )
+    ).offset(offset).limit(limit).all()
+    
+    # 3. 총 메시지 수
+    total_messages = db.query(Message).filter(
+        Message.session_id == session_id
+    ).count()
+    
+    # 4. 응답 구성
+    message_items = [
+        MessageItem(
+            message_id=msg.message_id,
+            session_id=msg.session_id,
+            role=msg.role,
+            content=msg.content,
+            timestamp=msg.timestamp
+        )
+        for msg in messages
+    ]
+    
+    return {
+        "session_id": session_id,
+        "persona_name": session.persona_name,
+        "role_description": session.role_description,  # ✅ 추가
+        "difficulty": session.difficulty,
+        "status": session.status,
+        "total_messages": total_messages,
+        "messages": message_items
+    }
+
+
 @router.patch("/{session_id}/difficulty", response_model=SessionResponse)
 async def update_session_difficulty(
     session_id: str,
@@ -168,10 +241,10 @@ async def end_session(
             detail=f"Session already ended with status: {session.status}"
         )
     
-    # 2. 대화 내역 가져오기
-    messages = db.query(AgentMessage).filter(
-        AgentMessage.session_id == session_id
-    ).order_by(AgentMessage.timestamp).all()
+    # 2. 대화 내역 가져오기 (✅ Message 모델 사용)
+    messages = db.query(Message).filter(
+        Message.session_id == session_id
+    ).order_by(Message.timestamp).all()
     
     if not messages:
         raise HTTPException(

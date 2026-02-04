@@ -1,15 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from app.db.database import get_db
-from app.models.agent import AgentMessage
+from app.models.message import Message
 from app.models.session import ChatSession
 from app.schemas.agent import AgentRequest, AgentResponse, SessionStartRequest
 from app.api.v1.services.agent_service import AgentService
 from app.api.v1.services.session_service import SessionService
+
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -57,7 +58,7 @@ async def send_message(
     
     agent_response_text = agent_response_data.get("text", "")
     coach_data = agent_response_data.get("coach")
-    supervisor_data = agent_response_data.get("supervisor")  # DB 저장용
+    supervisor_data = agent_response_data.get("supervisor")
     
     # coach_data 로그 출력
     if coach_data:
@@ -66,32 +67,65 @@ async def send_message(
         print(f"  - rewrite: {coach_data.get('rewrite')}")
         print(f"  - signals: {coach_data.get('signals')}")
     
-    # 4. 메시지 저장
-    message_id = f"msg_{uuid.uuid4().hex[:12]}"
+    # 4. 메시지 저장 (role별로 분리, 순서 보장)
+    base_message_id = f"msg_{uuid.uuid4().hex[:12]}"
+    base_timestamp = datetime.utcnow()
     
-    agent_message = AgentMessage(
-        message_id=message_id,
+    messages_to_save = []
+    
+    # ✅ 4-1. User 메시지 저장 (timestamp: base)
+    user_message = Message(
+        message_id=f"{base_message_id}_user",
         session_id=request.session_id,
-        user_message=request.message,
-        agent_response=agent_response_text,
-        timestamp=datetime.utcnow(),
+        role="user",
+        content=request.message,
+        timestamp=base_timestamp,
         extra_data={
-            "message_number": session.message_count + 1,
-            "use_supervisor": request.use_supervisor,
-            "coach": coach_data,
-            "supervisor": supervisor_data  # ✅ DB에는 저장
+            "message_number": session.message_count + 1
         }
     )
+    messages_to_save.append(user_message)
     
-    db.add(agent_message)
+    # ✅ 4-2. Coach 메시지 저장 (timestamp: base + 1ms, intervene=True일 때만)
+    if coach_data and coach_data.get("intervene"):
+        coach_content = coach_data.get("rewrite", "")
+        coach_signals = coach_data.get("signals", [])
+        
+        coach_message = Message(
+            message_id=f"{base_message_id}_coach",
+            session_id=request.session_id,
+            role="coach",
+            content=coach_content,
+            timestamp=base_timestamp + timedelta(milliseconds=1),
+            extra_data={
+                "signals": coach_signals,
+                "message_number": session.message_count + 1
+            }
+        )
+        messages_to_save.append(coach_message)
+    
+    # ✅ 4-3. Persona 메시지 저장 (timestamp: base + 2ms)
+    persona_message = Message(
+        message_id=f"{base_message_id}_persona",
+        session_id=request.session_id,
+        role="persona",
+        content=agent_response_text,
+        timestamp=base_timestamp + timedelta(milliseconds=2),
+        extra_data={
+            "message_number": session.message_count + 1
+        }
+    )
+    messages_to_save.append(persona_message)
+    
+    # 일괄 저장
+    db.add_all(messages_to_save)
     
     # 5. 세션 메시지 카운트 증가
     SessionService.increment_message_count(session, db)
     
     db.commit()
-    db.refresh(agent_message)
     
-    # ✅ 프론트엔드로 반환 (supervisor 제거)
+    # 프론트엔드로 반환
     return {
         "response": agent_response_text,
         "success": True,
@@ -140,21 +174,31 @@ async def start_session(
     
     opening_text = start_data.get("text", "")
     
-    # 4. 첫 발화 저장
-    message_id = f"msg_{uuid.uuid4().hex[:12]}"
-    agent_message = AgentMessage(
-        message_id=message_id,
+    # 4. 시스템 메시지 + 페르소나 첫 발화 저장
+    message_id_base = f"msg_{uuid.uuid4().hex[:12]}"
+    base_timestamp = datetime.utcnow()
+    
+    # ✅ 4-1. System 메시지 (timestamp: base)
+    system_message = Message(
+        message_id=f"{message_id_base}_system",
         session_id=request.session_id,
-        user_message="[세션 시작]",
-        agent_response=opening_text,
-        timestamp=datetime.utcnow(),
-        extra_data={
-            "is_opening": True,
-            "use_supervisor": request.use_supervisor
-        }
+        role="system",
+        content="[세션 시작]",
+        timestamp=base_timestamp,
+        extra_data={"is_opening": True}
     )
     
-    db.add(agent_message)
+    # ✅ 4-2. Persona 첫 발화 (timestamp: base + 1ms)
+    persona_message = Message(
+        message_id=f"{message_id_base}_persona",
+        session_id=request.session_id,
+        role="persona",
+        content=opening_text,
+        timestamp=base_timestamp + timedelta(milliseconds=1),
+        extra_data={"is_opening": True}
+    )
+    
+    db.add_all([system_message, persona_message])
     SessionService.increment_message_count(session, db)
     db.commit()
     

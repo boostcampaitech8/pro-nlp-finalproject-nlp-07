@@ -29,7 +29,7 @@ def get_db():
 
 def init_db():
     """데이터베이스 테이블 생성"""
-    from app.models import session, agent, feedback
+    from app.models import session, message, feedback
     
     try:
         # ✅ create_all이 자동으로 연결 확인

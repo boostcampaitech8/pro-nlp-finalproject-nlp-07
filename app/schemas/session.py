@@ -113,3 +113,25 @@ class SessionEndResponse(BaseModel):
     ended_at: datetime
     feedback: FeedbackDetailInline
     statistics: SessionStatistics
+
+class MessageItem(BaseModel):
+    """메시지 아이템 (role별 구조)"""
+    message_id: str
+    session_id: str
+    role: str  # user, coach, persona, system
+    content: str
+    timestamp: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class ConversationHistoryResponse(BaseModel):
+    """대화 기록 응답"""
+    session_id: str
+    persona_name: str
+    role_description: str  # ✅ 추가
+    difficulty: int
+    status: str
+    total_messages: int
+    messages: List[MessageItem]
