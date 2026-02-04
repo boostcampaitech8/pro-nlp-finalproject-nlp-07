@@ -85,6 +85,7 @@ async def get_user_sessions(
         SessionListItem(
             session_id=s.session_id,
             persona_name=s.persona_name,
+            role_description=s.role_description,  # ✅ 추가
             difficulty=s.difficulty,
             status=s.status,
             created_at=s.created_at,
@@ -98,6 +99,7 @@ async def get_user_sessions(
         "total_sessions": total,
         "sessions": session_items
     }
+
 
 
 @router.get("/{session_id}", response_model=SessionResponse)

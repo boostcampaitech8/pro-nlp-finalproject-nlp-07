@@ -58,18 +58,19 @@ class SessionResponse(BaseModel):
         return super().model_validate(obj, **kwargs)
 
 
-# ✅ 추가: 세션 목록 아이템 (간소화된 정보)
 class SessionListItem(BaseModel):
     """세션 목록 아이템"""
     session_id: str
     persona_name: str
+    role_description: str  # ✅ 추가
     difficulty: int
     status: str
     created_at: datetime
-    message_count: int
+    message_count: int = 0
     
     class Config:
         from_attributes = True
+
 
 
 # ✅ 추가: 세션 목록 응답
