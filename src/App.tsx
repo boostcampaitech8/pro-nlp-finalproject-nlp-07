@@ -1,34 +1,100 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from './components/Layout/AppLayout';
 import { useChat } from './hooks/useChat';
 import { chatService } from './services/chatService';
+import { userService } from './services/userService';
+import { sessionService } from './services/sessionService'; // ✅ 추가
 import { TITLE_MAX_LENGTH } from './constants/messages';
 import './App.css';
 
 const App: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const [showCustomModal, setShowCustomModal] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null); // ✅ 추가
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [isCreatingSession, setIsCreatingSession] = useState(false); // ✅ 추가
   const chatState = useChat();
 
-  // 시나리오 선택 핸들러 (프리셋)
-  const handleSelectScenario = (persona: string, situation: string) => {
-    const title = `${persona} 연습`;
-    chatState.createChat(title);
-    
-    // 시스템 메시지로 시나리오 정보 표시 (선택 사항)
-    const scenarioInfo = `📌 연습 시나리오\n상대방: ${persona}\n상황: ${situation}`;
-    chatState.addMessage(scenarioInfo, 'system');
-    
-    // TODO: 백엔드에 시나리오 정보 전송
-    // await chatService.setScenario(persona, situation);
+  // 앱 시작 시 user_id 초기화
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeUser = async () => {
+      try {
+        const id = await userService.initializeUserId();
+        if (isMounted) {
+          setUserId(id);
+        }
+      } catch (error) {
+        console.error('Failed to initialize user:', error);
+      } finally {
+        if (isMounted) {
+          setIsInitializing(false);
+        }
+      }
+    };
+
+    initializeUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // ✅ 시나리오 선택 핸들러 (수정)
+  const handleSelectScenario = async (persona: string, situation: string) => {
+    if (!userId) {
+      console.error('User ID not available');
+      return;
+    }
+
+    setIsCreatingSession(true);
+
+    try {
+      // 1. 세션 생성
+      console.log('Creating session...', { persona, situation });
+      const sessionResponse = await sessionService.createSession(
+        userId,
+        persona,
+        situation
+      );
+      
+      console.log('Session created:', sessionResponse);
+      setCurrentSessionId(sessionResponse.session_id);
+
+      // 2. 채팅 생성 (UI)
+      const title = `${persona} 연습`;
+      chatState.createChat(title);
+
+      // 3. 시스템 메시지 추가
+      const scenarioInfo = `📌 연습 시나리오\n상대방: ${persona}\n상황: ${situation}`;
+      chatState.addMessage(scenarioInfo, 'system');
+
+      // 4. AI 에이전트 시작
+      console.log('Starting agent...');
+      const agentResponse = await sessionService.startAgent(sessionResponse.session_id);
+      
+      console.log('Agent started:', agentResponse);
+
+      // 5. AI의 첫 메시지 추가
+      chatState.addMessage(agentResponse.opening_message, 'assistant');
+
+    } catch (error) {
+      console.error('Failed to create session or start agent:', error);
+      chatState.addMessage(
+        '세션 생성에 실패했습니다. 다시 시도해주세요.',
+        'system'
+      );
+    } finally {
+      setIsCreatingSession(false);
+    }
   };
 
-  // 커스텀 시나리오 생성 모달 열기
   const handleCustomCreate = () => {
     setShowCustomModal(true);
   };
 
-  // 커스텀 시나리오 제출
   const handleCustomSubmit = (persona: string, situation: string) => {
     handleSelectScenario(persona, situation);
     setShowCustomModal(false);
@@ -36,9 +102,8 @@ const App: React.FC = () => {
 
   const handleSendMessage = async () => {
     const messageText = inputValue.trim();
-    if (!messageText || chatState.isWaitingForResponse) return;
+    if (!messageText || chatState.isWaitingForResponse || !currentSessionId) return; // ✅ currentSessionId 체크
 
-    // 새 채팅 생성 (필요시)
     if (!chatState.currentChatId) {
       const title = messageText.length > TITLE_MAX_LENGTH
         ? messageText.substring(0, TITLE_MAX_LENGTH) + '...'
@@ -46,24 +111,16 @@ const App: React.FC = () => {
       chatState.createChat(title);
     }
 
-    // 사용자 메시지 추가
     chatState.addMessage(messageText, 'user');
     setInputValue('');
-
-    // 로딩 상태
     chatState.setWaitingForResponse(true);
 
     try {
-      // 실제 API 호출
-      const result = await chatService.sendMessage(
-        messageText,
-        // chatState.currentChatId?.toString() || 'temp-session'
-      );
+      // TODO: chatService.sendMessage에 session_id 전달
+      const result = await chatService.sendMessage(messageText);
 
-      // Persona AI 응답 추가
       chatState.addMessage(result.response, 'assistant');
 
-      // Coach AI 응답이 있으면 추가
       if (result.coachFeedback) {
         chatState.addMessage(result.coachFeedback, 'coach');
       }
@@ -78,6 +135,7 @@ const App: React.FC = () => {
   const handleNewChat = () => {
     chatState.resetChat();
     setInputValue('');
+    setCurrentSessionId(null); // ✅ 세션 초기화
   };
 
   const handleSelectChat = (chatId: number) => {
@@ -87,6 +145,30 @@ const App: React.FC = () => {
   const handleSettings = () => {
     console.log('Settings clicked');
   };
+
+  // ✅ 로딩 컴포넌트
+  const LoadingScreen: React.FC<{ message: string }> = ({ message }) => (
+    <div className="loading-screen">
+      <div className="loading-content">
+        <div className="loading-dots">
+          <div className="dot"></div>
+          <div className="dot"></div>
+          <div className="dot"></div>
+          <div className="dot"></div>
+          <div className="dot"></div>
+        </div>
+        <div className="loading-text">{message}</div>
+      </div>
+    </div>
+  );
+
+  if (isInitializing) {
+    return <LoadingScreen message="초기화 중..." />;
+  }
+
+  if (isCreatingSession) {
+    return <LoadingScreen message="대화 준비 중..." />;
+  }
 
   return (
     <>
@@ -105,7 +187,6 @@ const App: React.FC = () => {
         onCustomCreate={handleCustomCreate}
       />
 
-      {/* 커스텀 시나리오 생성 모달 */}
       {showCustomModal && (
         <CustomScenarioModal
           onSubmit={handleCustomSubmit}
@@ -116,7 +197,7 @@ const App: React.FC = () => {
   );
 };
 
-// 커스텀 시나리오 모달 컴포넌트
+// CustomScenarioModal 컴포넌트 (기존과 동일)
 interface CustomScenarioModalProps {
   onSubmit: (persona: string, situation: string) => void;
   onClose: () => void;
