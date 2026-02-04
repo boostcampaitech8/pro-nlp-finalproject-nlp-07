@@ -6,7 +6,6 @@ from app.core.config import AGENT_API_HOST, AGENT_API_KEY
 class AgentService:
     """AI 에이전트 서비스"""
     
-    # ✅ 엔드포인트 정의
     ENDPOINTS = {
         "agent": "/chat/message",
         "start": "/chat/start",
@@ -26,21 +25,7 @@ class AgentService:
         use_supervisor: bool = False,
         endpoint: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        외부 Agent API 호출하여 응답 받기
-        
-        Args:
-            user_message: 사용자 메시지
-            session_id: 세션 ID
-            persona_name: 페르소나 이름
-            role_description: 역할 설명
-            difficulty: 난이도 (1-5)
-            use_supervisor: Supervisor 검수 사용 여부
-            endpoint: 커스텀 엔드포인트
-            
-        Returns:
-            AI 에이전트 응답 딕셔너리
-        """
+        """외부 Agent API 호출하여 응답 받기"""
         
         try:
             return await AgentService._call_external_api(
@@ -73,7 +58,8 @@ class AgentService:
         """외부 Agent API 호출 (실제 구현)"""
         
         api_endpoint = endpoint or AgentService.DEFAULT_ENDPOINT
-        api_url = f"{AGENT_API_HOST}{api_endpoint}"
+        # ✅ debug=true 파라미터 추가
+        api_url = f"{AGENT_API_HOST}{api_endpoint}?debug=true"
         
         print(f"🔗 Agent API 호출: {api_url}")
         print(f"📦 Persona: {persona_name}, Difficulty: {difficulty}")
@@ -84,10 +70,9 @@ class AgentService:
                     api_url,
                     json={
                         "session_id": session_id,
-                        "template_id": 1,  # ✅ 고정값
+                        "template_id": 1,
                         "user_text": user_message,
                         "use_supervisor": use_supervisor,
-                        # ✅ 페르소나 정보 직접 전달
                         "persona_name": persona_name,
                         "role_description": role_description,
                         "difficulty": difficulty
@@ -103,16 +88,28 @@ class AgentService:
                 
                 print(f"✅ Agent API 응답 수신")
                 
-                # 응답 파싱
+                # ✅ 응답 파싱
                 persona_text = ""
                 if isinstance(data, dict):
                     persona = data.get("persona", {})
                     if isinstance(persona, dict):
                         persona_text = persona.get("text", "")
                     
+                    # ✅ debug.last_coach 파싱
+                    coach_detail = None
+                    debug_data = data.get("debug", {})
+                    if isinstance(debug_data, dict):
+                        last_coach = debug_data.get("last_coach", {})
+                        if isinstance(last_coach, dict) and last_coach:
+                            coach_detail = {
+                                "intervene": last_coach.get("intervene", False),
+                                "rewrite": last_coach.get("rewrite"),
+                                "signals": last_coach.get("signals", [])
+                            }
+                    
                     return {
                         "text": persona_text or data.get("response") or data.get("message") or str(data),
-                        "coach": data.get("coach"),
+                        "coach": coach_detail,
                         "supervisor": data.get("supervisor"),
                         "session_id": data.get("session_id")
                     }
@@ -159,7 +156,7 @@ class AgentService:
                     api_url,
                     json={
                         "session_id": session_id,
-                        "template_id": 1,  # ✅ 고정값
+                        "template_id": 1,
                         "persona_name": persona_name,
                         "role_description": role_description,
                         "difficulty": difficulty,

@@ -29,7 +29,7 @@ async def send_message(
     persona 정보는 세션 DB에서 자동 조회됩니다.
     """
     
-    # 1. ✅ 세션 유효성 검증 및 조회
+    # 1. 세션 유효성 검증 및 조회
     try:
         session = SessionService.validate_session(request.session_id, db)
     except ValueError as e:
@@ -38,7 +38,7 @@ async def send_message(
             detail=str(e)
         )
     
-    # 2. ✅ DB에서 persona 정보 가져오기
+    # 2. DB에서 persona 정보 가져오기
     persona_name = session.persona_name
     role_description = session.role_description
     difficulty = session.difficulty
@@ -57,7 +57,14 @@ async def send_message(
     
     agent_response_text = agent_response_data.get("text", "")
     coach_data = agent_response_data.get("coach")
-    supervisor_data = agent_response_data.get("supervisor")
+    supervisor_data = agent_response_data.get("supervisor")  # DB 저장용
+    
+    # coach_data 로그 출력
+    if coach_data:
+        print(f"🎯 Coach 피드백:")
+        print(f"  - intervene: {coach_data.get('intervene')}")
+        print(f"  - rewrite: {coach_data.get('rewrite')}")
+        print(f"  - signals: {coach_data.get('signals')}")
     
     # 4. 메시지 저장
     message_id = f"msg_{uuid.uuid4().hex[:12]}"
@@ -72,7 +79,7 @@ async def send_message(
             "message_number": session.message_count + 1,
             "use_supervisor": request.use_supervisor,
             "coach": coach_data,
-            "supervisor": supervisor_data
+            "supervisor": supervisor_data  # ✅ DB에는 저장
         }
     )
     
@@ -84,11 +91,11 @@ async def send_message(
     db.commit()
     db.refresh(agent_message)
     
+    # ✅ 프론트엔드로 반환 (supervisor 제거)
     return {
         "response": agent_response_text,
         "success": True,
-        "coach": coach_data,
-        "supervisor": supervisor_data
+        "coach": coach_data
     }
 
 
@@ -106,7 +113,7 @@ async def start_session(
     persona 정보는 세션 DB에서 자동 조회됩니다.
     """
     
-    # 1. ✅ 세션 유효성 검증 및 조회
+    # 1. 세션 유효성 검증 및 조회
     try:
         session = SessionService.validate_session(request.session_id, db)
     except ValueError as e:
@@ -115,7 +122,7 @@ async def start_session(
             detail=str(e)
         )
     
-    # 2. ✅ DB에서 persona 정보 가져오기
+    # 2. DB에서 persona 정보 가져오기
     persona_name = session.persona_name
     role_description = session.role_description
     difficulty = session.difficulty

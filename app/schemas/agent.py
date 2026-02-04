@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class AgentRequest(BaseModel):
@@ -13,13 +13,20 @@ class AgentRequest(BaseModel):
         populate_by_name = True
 
 
+class CoachDetail(BaseModel):
+    """코치 피드백 상세"""
+    intervene: bool = Field(..., description="개입 여부")
+    rewrite: Optional[str] = Field(None, description="추천 답변")
+    signals: List[str] = Field(default_factory=list, description="피드백 신호")
+
+
 class AgentResponse(BaseModel):
     """에이전트 응답"""
     response: str = Field(..., description="AI 에이전트 응답")
     success: bool = Field(default=True, description="성공 여부")
     
-    coach: Optional[dict] = Field(default=None, description="코치 피드백")
-    supervisor: Optional[dict] = Field(default=None, description="Supervisor 검수 결과")
+    coach: Optional[CoachDetail] = Field(default=None, description="코치 피드백 상세")
+    # ✅ supervisor 제거
 
 
 class SessionStartRequest(BaseModel):
