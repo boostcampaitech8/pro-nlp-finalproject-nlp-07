@@ -9,6 +9,7 @@ from app.models.feedback import SessionFeedback
 from app.schemas.session import (
     SessionCreate,
     SessionResponse,
+    SessionDifficultyUpdate,  # ✅ 추가
     SessionEndRequest,
     SessionEndResponse
 )
@@ -29,7 +30,7 @@ async def create_session(
     - **user_id**: 익명 사용자 ID (anon_<UUID> 형식)
     - **persona_name**: 페르소나 이름 (예: "면접관", "친한 친구")
     - **role_description**: 역할 설명
-    - **difficulty**: 난이도 (1-5)
+    - **difficulty**: 난이도 (1: 쉬움, 2: 보통, 3: 어려움)
     - **metadata**: 추가 메타데이터 (선택)
     """
     session = SessionService.create_session(session_data, db)
@@ -51,6 +52,35 @@ async def get_session(
         )
     
     return SessionResponse.model_validate(session)
+
+
+@router.patch("/{session_id}/difficulty", response_model=SessionResponse)
+async def update_session_difficulty(
+    session_id: str,
+    update_data: SessionDifficultyUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    세션의 난이도 수정
+    
+    - **session_id**: 세션 ID (필수)
+    - **difficulty**: 새로운 난이도 (1: 쉬움, 2: 보통, 3: 어려움)
+    
+    활성 상태의 세션만 수정 가능합니다.
+    """
+    try:
+        session = SessionService.update_difficulty(
+            session_id=session_id,
+            new_difficulty=update_data.difficulty,
+            db=db
+        )
+        return SessionResponse.model_validate(session)
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
 
 
 @router.post("/{session_id}/end", response_model=SessionEndResponse)

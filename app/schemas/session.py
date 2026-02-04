@@ -8,10 +8,9 @@ class SessionCreate(BaseModel):
     """세션 생성 요청"""
     user_id: str = Field(..., description="사용자 익명 ID")
     
-    # ✅ persona 정보 추가
     persona_name: str = Field(..., description="페르소나 이름")
     role_description: str = Field(..., description="역할 설명")
-    difficulty: int = Field(default=2, ge=1, le=5, description="난이도 (1-5)")
+    difficulty: int = Field(default=2, ge=1, le=3, description="난이도 (1-3)")  # ✅ 1~3
     
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
     
@@ -29,7 +28,6 @@ class SessionResponse(BaseModel):
     user_id: str
     status: str
     
-    # ✅ persona 정보
     persona_name: str
     role_description: str
     difficulty: int
@@ -58,6 +56,11 @@ class SessionResponse(BaseModel):
             }
             return cls(**data)
         return super().model_validate(obj, **kwargs)
+
+
+class SessionDifficultyUpdate(BaseModel):
+    """세션 난이도 수정 요청"""
+    difficulty: int = Field(..., ge=1, le=3, description="난이도 (1-3)")  # ✅ 1~3
 
 
 class SessionEndRequest(BaseModel):
