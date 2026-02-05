@@ -34,12 +34,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </div>
 
-      {/* ✅ chat-history를 두 부분으로 분리 */}
       <div className="chat-history">
-        {/* ✅ 고정되는 제목 */}
         <div className="chat-history-title">최근 대화</div>
         
-        {/* ✅ 스크롤되는 목록 */}
         <div className="chat-history-list">
           {sortedChats.length === 0 ? (
             <div className="empty-state">대화 기록이 없습니다</div>
@@ -50,7 +47,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`chat-history-item ${chat.id === currentChatId ? 'active' : ''}`}
                 onClick={() => onSelectChat(chat.id)}
               >
-                {chat.title}
+                {/* ✅ roleDescription만 표시, 없으면 title 표시 */}
+                {chat.roleDescription || chat.title}
               </button>
             ))
           )}

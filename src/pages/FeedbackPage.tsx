@@ -25,6 +25,7 @@ export const FeedbackPage: React.FC = () => {
           title: `${session.persona_name} 연습`,
           timestamp: new Date(session.created_at),
           messageCount: session.message_count,
+          roleDescription: session.role_description,
         }));
         setChatHistories(chats);
       } catch (error) {

@@ -7,13 +7,12 @@ export interface Message {
   timestamp: string;
 }
 
-// ✅ Chat 타입 수정
 export interface Chat {
-  id: string; // ✅ number → string (session_id 사용)
+  id: string;
   title: string;
-  messages?: Message[]; // ✅ optional로 변경
-  messageCount?: number; // ✅ 추가
-  timestamp?: Date; // ✅ 추가
+  timestamp: Date;
+  messageCount: number;
+  roleDescription: string;
 }
 
 export interface ChatState {
