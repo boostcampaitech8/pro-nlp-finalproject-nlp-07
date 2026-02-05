@@ -317,8 +317,18 @@ async def delete_session(
     session_id: str,
     db: Session = Depends(get_db)
 ):
-    """세션 삭제"""
-    session = SessionService.get_session(session_id, db)
+    """
+    세션 삭제
+    
+    - **session_id**: 세션 ID (필수)
+    
+    세션과 관련된 모든 데이터(메시지, 피드백)가 함께 삭제됩니다.
+    """
+    
+    # 1. 세션 조회
+    session = db.query(ChatSession).filter(
+        ChatSession.session_id == session_id
+    ).first()
     
     if not session:
         raise HTTPException(
@@ -326,5 +336,22 @@ async def delete_session(
             detail="Session not found"
         )
     
+    # 2. 관련 데이터 삭제 (Foreign Key로 CASCADE 설정되어 있으면 자동 삭제)
+    # messages 삭제
+    db.query(Message).filter(
+        Message.session_id == session_id
+    ).delete()
+    
+    # feedback 삭제
+    db.query(SessionFeedback).filter(
+        SessionFeedback.session_id == session_id
+    ).delete()
+    
+    # 3. 세션 삭제
     db.delete(session)
     db.commit()
+    
+    print(f"✅ 세션 삭제 완료 - session_id: {session_id}")
+    
+    # 204 No Content (응답 본문 없음)
+    return
