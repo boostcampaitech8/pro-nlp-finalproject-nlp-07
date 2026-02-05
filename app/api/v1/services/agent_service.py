@@ -70,11 +70,11 @@ class AgentService:
                     api_url,
                     json={
                         "session_id": session_id,
-                        "template_id": 1,
+                        # "template_id": 1,
                         "user_text": user_message,
                         "use_supervisor": use_supervisor,
-                        "persona_name": persona_name,
-                        "role_description": role_description,
+                        # "persona_name": persona_name,
+                        # "role_description": role_description,
                         "difficulty": difficulty
                     },
                     headers={
