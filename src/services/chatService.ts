@@ -1,10 +1,12 @@
+import { userService } from './userService';
+
 interface SendMessageRequest {
   session_id: string;
   user_text: string;
   use_supervisor?: boolean;
+  user_id?: string;
 }
 
-// ✅ coach 응답 타입 정의
 interface CoachResponse {
   intervene: boolean;
   rewrite: string;
@@ -14,7 +16,7 @@ interface CoachResponse {
 interface SendMessageResponse {
   response: string;
   success: boolean;
-  coach?: CoachResponse; // ✅ 타입 지정
+  coach?: CoachResponse;
   supervisor?: any;
 }
 
@@ -28,6 +30,8 @@ export const chatService = {
     useSupervisor: boolean = false
   ): Promise<{ response: string; coachFeedback?: string }> {
     try {
+      const userId = userService.getUserId();
+      
       const response = await fetch('/api/v1/agent', {
         method: 'POST',
         headers: {
@@ -37,6 +41,7 @@ export const chatService = {
           session_id: sessionId,
           user_text: userText,
           use_supervisor: useSupervisor,
+          user_id: userId,
         } as SendMessageRequest),
       });
 
@@ -48,7 +53,6 @@ export const chatService = {
 
       console.log('Agent response:', data);
 
-      // ✅ 코치 피드백 처리 - intervene이 true이고 rewrite가 있을 때만
       let coachFeedback: string | undefined;
       if (data.coach && data.coach.intervene && data.coach.rewrite) {
         console.log('Coach feedback received:', data.coach.rewrite);

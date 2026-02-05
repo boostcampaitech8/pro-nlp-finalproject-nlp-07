@@ -1,7 +1,7 @@
 /* Message Bubble 컨테이너 */
 .message-bubble {
   display: block;
-  margin: 12px 8px; /* ✅ 16px → 8px로 줄임 */
+  margin: 12px 8px;
   clear: both;
   animation: slideIn 0.3s ease-out;
 }
@@ -28,7 +28,7 @@
 /* 메시지 내용 */
 .message-content {
   display: inline-block;
-  max-width: 80%; /* ✅ 70% → 80%로 늘림 */
+  max-width: 80%;
   padding: 12px 16px;
   border-radius: 12px;
   font-size: 14px;
@@ -53,27 +53,18 @@
   border-bottom-right-radius: 4px;
 }
 
-/* AI 메시지 */
+/* AI 메시지 - 항상 다크 */
 .message-bubble.assistant .message-content {
-  background-color: #f0f0f0;
-  color: #1f2121;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background-color: #2d2d2d; /* ✅ 다크로 고정 */
+  color: #f5f5f5; /* ✅ 밝은 텍스트 */
+  border: 1px solid rgba(255, 255, 255, 0.1); /* ✅ 밝은 테두리 */
   border-bottom-left-radius: 4px;
-}
-
-/* 다크모드 */
-@media (prefers-color-scheme: dark) {
-  .message-bubble.assistant .message-content {
-    background-color: #2d2d2d;
-    color: #f5f5f5;
-    border-color: rgba(255, 255, 255, 0.1);
-  }
 }
 
 /* 시스템 메시지 */
 .system-message {
   display: block;
-  margin: 24px 8px; /* ✅ 16px → 8px로 줄임 */
+  margin: 24px 8px;
   text-align: center;
 }
 
@@ -129,13 +120,13 @@
 /* 반응형 */
 @media (max-width: 768px) {
   .message-content {
-    max-width: 90%; /* ✅ 85% → 90%로 늘림 */
+    max-width: 90%;
     padding: 10px 12px;
     font-size: 13px;
   }
   
   .message-bubble {
-    margin: 8px 6px; /* ✅ 12px → 6px로 줄임 */
+    margin: 8px 6px;
   }
   
   .user-badge,

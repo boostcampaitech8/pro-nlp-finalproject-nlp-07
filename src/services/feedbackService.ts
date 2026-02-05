@@ -1,3 +1,4 @@
+import { userService } from './userService';
 import type { SessionFeedback } from '../types/feedback';
 
 export const feedbackService = {
@@ -6,7 +7,9 @@ export const feedbackService = {
    */
   async getSessionFeedback(sessionId: string): Promise<SessionFeedback> {
     try {
-      const response = await fetch(`/api/v1/feedback/${sessionId}`, {
+      const userId = userService.getUserId();
+      
+      const response = await fetch(`/api/v1/feedback/${sessionId}?user_id=${userId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
