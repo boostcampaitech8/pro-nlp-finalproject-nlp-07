@@ -1,34 +1,78 @@
-/* 로고 관련 스타일은 그대로 유지 */
+/* ========================================
+   사이드바 전체 레이아웃
+   ======================================== */
+.sidebar {
+  width: 260px;
+  background: #202123;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #4d4d4f;
+  height: 100vh;
+}
 
-/* ✅ chat-history: 제목 + 리스트 컨테이너 */
+/* ========================================
+   로고 섹션
+   ======================================== */
+.logo-section {
+  padding: 16px;
+  border-bottom: 1px solid #4d4d4f;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.logo:hover {
+  opacity: 0.8;
+}
+
+.logo-icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.5px;
+}
+
+/* ========================================
+   대화 기록 섹션
+   ======================================== */
 .chat-history {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 0;
 }
 
-/* ✅ 고정되는 제목 */
+/* 고정 제목 */
 .chat-history-title {
   padding: 16px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.5);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
 
-/* ✅ 스크롤되는 리스트 */
+/* 스크롤 가능한 리스트 영역 */
 .chat-history-list {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0 8px;
+  padding: 0 8px 8px 8px;
 }
 
-/* ✅ 예쁜 스크롤바 */
+/* 스크롤바 스타일 */
 .chat-history-list::-webkit-scrollbar {
   width: 6px;
 }
@@ -38,50 +82,158 @@
 }
 
 .chat-history-list::-webkit-scrollbar-thumb {
-  background: rgba(119, 124, 124, 0.3);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
 .chat-history-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(119, 124, 124, 0.5);
+  background: rgba(255, 255, 255, 0.3);
 }
 
-/* ✅ 대화 항목 */
-.chat-history-item {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  width: 100%;
-  height: 44px;
-  padding: 0 16px;
-  margin-bottom: 4px;
-  background: none;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  text-align: left;
-  font-size: 14px;
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.chat-history-item:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.chat-history-item.active {
-  background-color: rgba(16, 163, 127, 0.15);
-  border-left: 3px solid #10a37f;
-  padding-left: 13px;
-}
-
+/* 빈 상태 */
 .empty-state {
   padding: 20px 16px;
   text-align: center;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.5);
   font-size: 13px;
+}
+
+/* ========================================
+   대화 항목
+   ======================================== */
+.chat-history-item-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  transition: all 0.2s;
+}
+
+.chat-history-item-wrapper:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-history-item-wrapper.active {
+  background: rgba(16, 163, 127, 0.15);
+  border-left: 3px solid #10a37f;
+  padding-left: 9px;
+}
+
+.chat-history-item {
+  flex: 1;
+  text-align: left;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+}
+
+.chat-history-item:hover {
+  color: #fff;
+}
+
+/* ========================================
+   메뉴 버튼 (세로 점 3개)
+   ======================================== */
+.chat-menu-container {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.chat-menu-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.chat-history-item-wrapper:hover .chat-menu-button {
+  opacity: 0.6;
+}
+
+.chat-menu-button:hover {
+  opacity: 1 !important;
+}
+
+.chat-menu-button .menu-dot {
+  width: 3px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  display: block;
+}
+
+/* ========================================
+   드롭다운 메뉴
+   ======================================== */
+.chat-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #2d2d2d;
+  border: 1px solid #4d4d4f;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 120px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menu-item.delete {
+  color: #f44336;
+}
+
+.menu-item.delete:hover {
+  background: rgba(244, 67, 54, 0.1);
+}
+
+/* ========================================
+   반응형
+   ======================================== */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 240px;
+  }
+
+  .logo-text {
+    font-size: 18px;
+  }
+
+  .chat-history-item {
+    font-size: 13px;
+  }
 }

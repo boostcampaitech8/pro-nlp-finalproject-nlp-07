@@ -104,7 +104,7 @@ color: var(--color-text-primary);
 letter-spacing: -0.5px;
 }
 
-/* Chat History */
+/* Chat History
 .chat-history {
 flex: 1;
 padding: 12px;
@@ -157,7 +157,7 @@ background-color: transparent;
 color: var(--color-primary);
 border-left-color: var(--color-primary);
 font-weight: 500;
-}
+} */
 
 /* Main Content Area */
 .main-content {

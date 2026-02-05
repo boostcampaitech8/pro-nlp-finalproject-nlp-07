@@ -35,7 +35,7 @@ export const ChatPage: React.FC = () => {
   const [personaName, setPersonaName] = useState<string>('상대방');
   
   const [difficulty, setDifficulty] = useState(2);
-  const [useSupervisor, setUseSupervisor] = useState(false);
+  const [useSupervisor, setUseSupervisor] = useState(true);
   
   const [chatHistories, setChatHistories] = useState<Chat[]>([]);
   

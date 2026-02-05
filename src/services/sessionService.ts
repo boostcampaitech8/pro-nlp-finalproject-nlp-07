@@ -253,7 +253,26 @@ export const sessionService = {
     }
 
     return response.json();
+  },
+
+  // ✅ 세션 삭제 함수 추가
+async deleteSession(sessionId: string) {
+  const response = await fetch(`/api/v1/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to delete session');
   }
 
+  if (response.status === 204) {
+    return { success: true, message: 'Session deleted successfully' };
+  }
+
+  return response.json();
+}
 
 };

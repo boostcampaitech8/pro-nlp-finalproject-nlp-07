@@ -1,0 +1,79 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7); /* ✅ 더 어둡게 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: #2d2d2d; /* ✅ 어두운 배경 */
+  border: 1px solid #4d4d4f;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  color: #fff; /* ✅ 흰색 */
+}
+
+.modal-content p {
+  margin: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.8); /* ✅ 밝은 회색 */
+  line-height: 1.6;
+}
+
+.warning-text {
+  color: #ff6b6b !important; /* ✅ 더 밝은 빨강 */
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  justify-content: flex-end;
+}
+
+.btn-cancel,
+.btn-delete {
+  flex: 1; /* ✅ 같은 크기 */
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #404040; /* ✅ 어두운 회색 */
+  color: #fff;
+}
+
+.btn-cancel:hover {
+  background: #505050;
+}
+
+.btn-delete {
+  background: #f44336;
+  color: #fff;
+}
+
+.btn-delete:hover {
+  background: #d32f2f;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+}
