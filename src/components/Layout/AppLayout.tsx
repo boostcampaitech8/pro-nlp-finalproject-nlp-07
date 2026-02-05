@@ -3,8 +3,10 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { ChatContainer } from '../Chat/ChatContainer';
 import { MessageInput } from '../Input/MessageInput';
+import { LoadingScreen } from '../Common/LoadingScreen';
 import type { Message, Chat } from '../../types';
-import type { SessionFeedback } from '../../types/feedback'; // ✅ 다시 추가
+import type { SessionFeedback } from '../../types/feedback';
+import './AppLayout.css';
 
 interface AppLayoutProps {
   messages: Message[];
@@ -27,8 +29,10 @@ interface AppLayoutProps {
   onSupervisorToggle?: (enabled: boolean) => void;
   onEndChat?: () => void;
   isLoading?: boolean;
-  showFeedback?: boolean; // ✅ 다시 추가
-  feedbackData?: SessionFeedback | null; // ✅ 다시 추가
+  showFeedback?: boolean;
+  feedbackData?: SessionFeedback | null;
+  isEndingSession?: boolean;
+  loadingMessage?: string;
 }
 
 export const AppLayout: React.FC<AppLayoutProps> = ({
@@ -50,17 +54,36 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
   onSupervisorToggle = () => {},
   onEndChat = () => {},
   isLoading = false,
-  showFeedback = false, // ✅ 다시 추가
-  feedbackData = null, // ✅ 다시 추가
+  showFeedback = false,
+  feedbackData = null,
+  isEndingSession = false,
+  loadingMessage,
 }) => {
   const hasMessages = messages.length > 0;
   
-  // ✅ 피드백 모드일 때 타이틀 변경
   const headerTitle = showFeedback 
     ? '대화 피드백'
     : personaName 
     ? `${personaName}와의 대화` 
     : 'AI Chatbot';
+
+  const showLoadingOverlay = isLoading || isEndingSession;
+  
+  const getLoadingMessage = (): string => {
+    if (loadingMessage) {
+      return loadingMessage;
+    }
+    
+    if (isEndingSession) {
+      return '피드백을 생성하고 있습니다';
+    }
+    
+    if (isLoading) {
+      return '대화를 불러오고 있습니다';
+    }
+    
+    return '로딩 중입니다';
+  };
 
   return (
     <div className="app-container">
@@ -70,6 +93,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
         onSelectChat={onSelectChat}
       />
       <div className="main-content">
+        {/* ✅ 헤더는 로딩 오버레이 밖에 */}
         <Header
           title={showScenarioSetup ? '' : headerTitle}
           onEndChat={onEndChat}
@@ -77,27 +101,34 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
           useSupervisor={useSupervisor}
           onDifficultyChange={onDifficultyChange}
           onSupervisorToggle={onSupervisorToggle}
-          showActions={!showScenarioSetup && !showFeedback} // ✅ 피드백 모드에서는 액션 숨김
+          showActions={!showScenarioSetup && !showFeedback}
         />
-        <ChatContainer
-          messages={messages}
-          isWaitingForResponse={isWaitingForResponse}
-          onSelectScenario={onSelectScenario}
-          onCustomCreate={onCustomCreate}
-          showScenarioSetup={showScenarioSetup}
-          personaName={personaName}
-          isLoading={isLoading}
-          showFeedback={showFeedback} // ✅ 다시 추가
-          feedbackData={feedbackData} // ✅ 다시 추가
-        />
-        {!showScenarioSetup && !showFeedback && hasMessages && ( // ✅ 피드백 모드에서는 입력창 숨김
-          <MessageInput
-            value={inputValue}
-            onChange={onInputChange}
-            onSend={onSendMessage}
-            disabled={isWaitingForResponse}
+        
+        <div className={`chat-area-wrapper ${showLoadingOverlay ? 'loading-active' : ''}`}>
+          {showLoadingOverlay && (
+            <LoadingScreen message={getLoadingMessage()} />
+          )}
+          
+          <ChatContainer
+            messages={messages}
+            isWaitingForResponse={isWaitingForResponse}
+            onSelectScenario={onSelectScenario}
+            onCustomCreate={onCustomCreate}
+            showScenarioSetup={showScenarioSetup}
+            personaName={personaName}
+            showFeedback={showFeedback}
+            feedbackData={feedbackData}
           />
-        )}
+          
+          {!showScenarioSetup && !showFeedback && hasMessages && !showLoadingOverlay && (
+            <MessageInput
+              value={inputValue}
+              onChange={onInputChange}
+              onSend={onSendMessage}
+              disabled={isWaitingForResponse}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

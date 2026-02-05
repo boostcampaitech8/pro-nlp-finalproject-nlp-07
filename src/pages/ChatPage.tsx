@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '../components/Layout/AppLayout';
-import { RatingModal } from '../components/Common/RatingModal'; // ✅ 추가
+import { RatingModal } from '../components/Common/RatingModal';
 import { useChat } from '../hooks/useChat';
 import { chatService } from '../services/chatService';
 import { sessionService } from '../services/sessionService';
@@ -39,8 +39,8 @@ export const ChatPage: React.FC = () => {
   
   const [chatHistories, setChatHistories] = useState<Chat[]>([]);
   
-  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false); // ✅ 추가
-  const [isEndingSession, setIsEndingSession] = useState(false); // ✅ 추가
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false);
+  const [isEndingSession, setIsEndingSession] = useState(false);
   
   const chatState = useChat();
   const hasInitialized = useRef(false);
@@ -83,7 +83,7 @@ export const ChatPage: React.FC = () => {
     loadSessions();
   }, [userId]);
 
-  // 채팅 초기화
+  // ✅ 채팅 초기화 - 세션 상태 확인 추가
   useEffect(() => {
     if (hasInitialized.current) {
       return;
@@ -101,7 +101,18 @@ export const ChatPage: React.FC = () => {
       try {
         console.log('Initializing chat with session:', sessionId);
 
-        // 1. 메시지 조회 시도
+        // ✅ 1. 세션 상태 확인
+        const sessionInfo = await sessionService.getSession(sessionId);
+        console.log('📌 Session info:', sessionInfo);
+
+        // ✅ 2. completed 세션이면 피드백 페이지로 리다이렉트
+        if (sessionInfo.status === 'completed') {
+          console.log('✅ Session completed, redirecting to feedback...');
+          navigate(`/feedback/${sessionId}`, { replace: true });
+          return;
+        }
+
+        // ✅ 3. active 세션이면 메시지 로드
         try {
           const messagesData = await sessionService.getSessionMessages(sessionId);
           console.log('📂 Messages loaded:', messagesData);
@@ -133,7 +144,7 @@ export const ChatPage: React.FC = () => {
           console.log('⚠️ No messages found, will start new session');
         }
 
-        // 2. 새 세션 시작
+        // ✅ 4. 새 세션 시작
         if (!persona || !situation) {
           throw new Error('No scenario information for new session');
         }
@@ -165,7 +176,7 @@ export const ChatPage: React.FC = () => {
     };
 
     initChat();
-  }, [sessionId]);
+  }, [sessionId, navigate, persona, situation, chatState]);
 
   const handleSendMessage = async () => {
     const messageText = inputValue.trim();
@@ -211,12 +222,10 @@ export const ChatPage: React.FC = () => {
     console.log('🔧 Supervisor toggled:', enabled);
   };
 
-  // ✅ 대화 종료 버튼 클릭 - 평가 모달 열기
   const handleEndChat = () => {
     setIsRatingModalOpen(true);
   };
 
-  // ✅ 평가 제출 및 세션 종료
   const handleRatingSubmit = async (rating: number) => {
     if (!sessionId) return;
 
@@ -230,10 +239,8 @@ export const ChatPage: React.FC = () => {
       console.log('Session end result:', result);
 
       if (result.status === 'completed') {
-        // 피드백 페이지로 이동
         navigate(`/feedback/${sessionId}`);
       } else {
-        // 피드백 생성 실패
         alert('피드백 생성에 실패했습니다. 다시 시도해주세요.');
         setIsEndingSession(false);
       }
@@ -279,10 +286,10 @@ export const ChatPage: React.FC = () => {
         onDifficultyChange={handleDifficultyChange}
         onSupervisorToggle={handleSupervisorToggle}
         onEndChat={handleEndChat}
-        isLoading={isLoading || isEndingSession} // ✅ 세션 종료 중에도 로딩 표시
+        isLoading={isLoading}
+        isEndingSession={isEndingSession}
       />
 
-      {/* ✅ 평가 모달 */}
       <RatingModal
         isOpen={isRatingModalOpen}
         onClose={() => setIsRatingModalOpen(false)}

@@ -1,9 +1,15 @@
 .loading-screen {
+  position: absolute; /* ✅ 추가 - 오버레이로 변경 */
+  top: 0; /* ✅ 추가 */
+  left: 0; /* ✅ 추가 */
+  right: 0; /* ✅ 추가 */
+  bottom: 0; /* ✅ 추가 */
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 100vh;
-  background: #1f2121;
+  background: rgba(31, 33, 33, 0.95); /* ✅ 반투명으로 변경 */
+  backdrop-filter: blur(8px); /* ✅ 추가 - 블러 효과 */
+  z-index: 1000; /* ✅ 추가 */
 }
 
 .loading-content {

@@ -183,7 +183,7 @@ export const sessionService = {
     /**
      * 세션 종료 및 평가
      */
-    async endSession(sessionId: string, userRating: number): Promise<{
+  async endSession(sessionId: string, userRating: number): Promise<{
     session_id: string;
     status: string;
     ended_at: string;
@@ -211,5 +211,49 @@ export const sessionService = {
         console.error('Error ending session:', error);
         throw error;
     }
-    },
+  },
+/**
+ * 세션 피드백 조회
+ */
+  async getFeedback(sessionId: string): Promise<{
+    session_id: string;
+    final_feedback: any;
+    generated_at: string;
+  }> {
+    try {
+        const response = await fetch(`/api/v1/feedback/${sessionId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        });
+
+        if (!response.ok) {
+        throw new Error(`Failed to get feedback: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error getting feedback:', error);
+        throw error;
+    }
+  },
+  // ✅ 세션 정보 조회 함수 추가
+  async getSession(sessionId: string) {
+    const response = await fetch(`/api/v1/sessions/${sessionId}`, {
+        method: 'GET',
+        headers: {
+        'Content-Type': 'application/json',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to get session');
+    }
+
+    return response.json();
+  }
+
+
 };

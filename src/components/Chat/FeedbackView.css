@@ -52,6 +52,478 @@
   font-size: 0.95rem;
 }
 
+/* ✅ 2열 그리드 레이아웃 */
+.feedback-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.feedback-section {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.feedback-section.full-width {
+  grid-column: 1 / -1;
+  margin-bottom: 1.5rem; 
+}
+
+.feedback-section h2 {
+  margin: 0 0 1.25rem 0;
+  font-size: 1.3rem;
+  color: #fff;
+}
+
+/* 대화 통계 - stats-subtitle 추가 */
+.stats-header {
+  margin-bottom: 1.25rem;
+}
+
+.stats-header h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.3rem;
+  color: #fff;
+}
+
+.stats-subtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+/* ✅ 대화 통계 그리드 추가 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s;
+}
+
+.stat-card:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-card.highlight {
+  background: rgba(74, 158, 255, 0.15);
+  border-color: rgba(74, 158, 255, 0.3);
+}
+
+.stat-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.25rem;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 사용자 프로필 섹션 */
+.conversation-summary {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+}
+
+.conversation-summary h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.conversation-summary p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+}
+
+.profile-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.badge-group h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.badge-tendency {
+  background: rgba(255, 193, 7, 0.2);
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.badge-risk {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.3);
+}
+
+.badge-trait {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.tendency-summary {
+  background: rgba(33, 150, 243, 0.1);
+  border-left: 3px solid #2196f3;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.tendency-summary h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.tendency-summary p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+}
+
+/* 상황 대응 평가 */
+.score-display {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.score-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 3px solid #4a9eff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-value {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #4a9eff;
+}
+
+.score-max {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.eval-section {
+  margin-bottom: 1.25rem;
+  padding: 1rem;
+  border-radius: 12px;
+}
+
+.eval-section:last-child {
+  margin-bottom: 0;
+}
+
+.eval-section.good {
+  background: rgba(76, 175, 80, 0.1);
+  border-left: 3px solid #4caf50;
+}
+
+.eval-section.improve {
+  background: rgba(255, 152, 0, 0.1);
+  border-left: 3px solid #ff9800;
+}
+
+.eval-section h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.eval-section ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.eval-section li {
+  margin-bottom: 0.5rem;
+  line-height: 1.5;
+}
+
+.eval-notes {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.8);
+  font-style: italic;
+}
+
+/* 문장 표현 평가 */
+.rewrite-examples {
+  margin-top: 1.5rem;
+}
+
+.rewrite-examples h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.example-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s;
+}
+
+.example-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.example-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.btn-copy {
+  background: rgba(74, 158, 255, 0.2);
+  border: 1px solid rgba(74, 158, 255, 0.4);
+  color: #4a9eff;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-copy:hover {
+  background: rgba(74, 158, 255, 0.3);
+  border-color: rgba(74, 158, 255, 0.6);
+  transform: translateY(-1px);
+}
+
+/* 다음 액션 가이드 */
+.copyable-lines,
+.next-drills,
+.homework {
+  margin-bottom: 1.5rem;
+}
+
+.copyable-lines:last-child,
+.next-drills:last-child,
+.homework:last-child {
+  margin-bottom: 0;
+}
+
+.copyable-lines h3,
+.next-drills h3,
+.homework h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.section-desc {
+  margin: 0 0 1rem 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+}
+
+.copyable-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.2s;
+}
+
+.copyable-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.copyable-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.6;
+  flex: 1;
+}
+
+.next-drills ul,
+.homework ul {
+  margin: 0;
+  padding-left: 1.5rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.next-drills li,
+.homework li {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+/* 코치 개입 내역 */
+.interventions-subtitle {
+  margin: 0 0 1.25rem 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+}
+
+.interventions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.intervention-card {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  transition: all 0.2s;
+}
+
+.intervention-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.intervention-header {
+  margin-bottom: 1rem;
+}
+
+.intervention-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(102, 126, 234, 0.8);
+  color: white;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.75rem;
+  border-radius: 16px;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.intervention-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.user-message-section,
+.coach-feedback-section {
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.user-message-section {
+  background: rgba(255, 245, 245, 0.15);
+  border-left: 3px solid rgba(255, 107, 107, 0.8);
+}
+
+.coach-feedback-section {
+  background: rgba(240, 249, 255, 0.15);
+  border-left: 3px solid rgba(59, 130, 246, 0.8);
+}
+
+.section-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: #fff;
+}
+
+.message-text,
+.feedback-text {
+  color: rgba(255, 255, 255, 0.95);
+  line-height: 1.6;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* 반응형 */
+@media (max-width: 1024px) {
+  .feedback-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .feedback-section.full-width {
+    grid-column: 1;
+  }
+}
+
 @media (max-width: 768px) {
   .feedback-view {
     padding: 1rem;
@@ -60,4 +532,43 @@
   .feedback-view-header h1 {
     font-size: 1.5rem;
   }
+
+  .example-card,
+  .copyable-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-copy {
+    width: 100%;
+    text-align: center;
+  }
+
+  .score-circle {
+    width: 100px;
+    height: 100px;
+  }
+
+  .score-value {
+    font-size: 2.5rem;
+  }
+}
+
+/* ✅ AI 피드백 대기 안내 */
+.ai-feedback-pending {
+  text-align: center;
+  padding: 3rem 2rem;
+}
+
+.ai-feedback-pending h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.5rem;
+  color: #ff9800;
+}
+
+.ai-feedback-pending p {
+  margin: 0.5rem 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1rem;
+  line-height: 1.6;
 }

@@ -2,9 +2,9 @@ import React, { useRef, useEffect } from 'react';
 import { MessageBubble } from './MessageBubble';
 import { ScenarioSetup } from './ScenarioSetup';
 import { TypingIndicator } from './TypingIndicator';
-import { FeedbackView } from './FeedbackView'; // ✅ 다시 추가
+import { FeedbackView } from './FeedbackView';
 import type { Message } from '../../types';
-import type { SessionFeedback } from '../../types/feedback'; // ✅ 다시 추가
+import type { SessionFeedback } from '../../types/feedback';
 import './ChatContainer.css';
 
 interface ChatContainerProps {
@@ -14,9 +14,9 @@ interface ChatContainerProps {
   onCustomCreate: () => void;
   showScenarioSetup?: boolean;
   personaName?: string;
-  isLoading?: boolean;
-  showFeedback?: boolean; // ✅ 다시 추가
-  feedbackData?: SessionFeedback | null; // ✅ 다시 추가
+  showFeedback?: boolean;
+  feedbackData?: SessionFeedback | null;
+  // ❌ isLoading prop 제거됨
 }
 
 export const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -26,9 +26,8 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
   onCustomCreate,
   showScenarioSetup = false,
   personaName,
-  isLoading = false,
-  showFeedback = false, // ✅ 다시 추가
-  feedbackData = null, // ✅ 다시 추가
+  showFeedback = false,
+  feedbackData = null,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -36,6 +35,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isWaitingForResponse]);
 
+  // ✅ 시나리오 설정 화면
   if (showScenarioSetup) {
     return (
       <div className="chat-container">
@@ -47,7 +47,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     );
   }
 
-  // ✅ 피드백 표시
+  // ✅ 피드백 화면
   if (showFeedback && feedbackData) {
     return (
       <div className="chat-container">
@@ -56,17 +56,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     );
   }
 
-  if (isLoading) {
-    return (
-      <div className="chat-container">
-        <div className="chat-loading">
-          <div className="loading-spinner"></div>
-          <p>대화를 불러오는 중...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // ✅ 메시지가 없을 때 시나리오 설정 화면
   if (messages.length === 0) {
     return (
       <div className="chat-container">
@@ -78,6 +68,7 @@ export const ChatContainer: React.FC<ChatContainerProps> = ({
     );
   }
 
+  // ✅ 일반 채팅 화면
   return (
     <div className="chat-container">
       {messages.map((message, index) => (
