@@ -179,4 +179,37 @@ export const sessionService = {
 
     return await response.json();
   },
+
+    /**
+     * 세션 종료 및 평가
+     */
+    async endSession(sessionId: string, userRating: number): Promise<{
+    session_id: string;
+    status: string;
+    ended_at: string;
+    message: string;
+    feedback_generated: boolean;
+    }> {
+    try {
+        const response = await fetch(`/api/v1/sessions/${sessionId}/end`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            user_rating: userRating,
+        }),
+        });
+
+        if (!response.ok) {
+        throw new Error(`Failed to end session: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error ending session:', error);
+        throw error;
+    }
+    },
 };

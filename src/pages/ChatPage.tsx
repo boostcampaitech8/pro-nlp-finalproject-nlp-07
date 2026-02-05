@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { AppLayout } from '../components/Layout/AppLayout';
+import { RatingModal } from '../components/Common/RatingModal'; // ✅ 추가
 import { useChat } from '../hooks/useChat';
 import { chatService } from '../services/chatService';
 import { sessionService } from '../services/sessionService';
 import { userService } from '../services/userService';
 import type { Chat } from '../types';
-// ❌ 피드백 타입 import 제거
 
 interface LocationState {
   persona?: string;
@@ -39,7 +39,8 @@ export const ChatPage: React.FC = () => {
   
   const [chatHistories, setChatHistories] = useState<Chat[]>([]);
   
-  // ❌ 피드백 관련 state 제거
+  const [isRatingModalOpen, setIsRatingModalOpen] = useState(false); // ✅ 추가
+  const [isEndingSession, setIsEndingSession] = useState(false); // ✅ 추가
   
   const chatState = useChat();
   const hasInitialized = useRef(false);
@@ -210,14 +211,36 @@ export const ChatPage: React.FC = () => {
     console.log('🔧 Supervisor toggled:', enabled);
   };
 
-  // ✅ 대화 종료 - 피드백 페이지로 이동
+  // ✅ 대화 종료 버튼 클릭 - 평가 모달 열기
   const handleEndChat = () => {
-    if (!window.confirm('대화를 종료하고 피드백을 확인하시겠습니까?')) {
-      return;
-    }
+    setIsRatingModalOpen(true);
+  };
 
-    if (sessionId) {
-      navigate(`/feedback/${sessionId}`);
+  // ✅ 평가 제출 및 세션 종료
+  const handleRatingSubmit = async (rating: number) => {
+    if (!sessionId) return;
+
+    setIsRatingModalOpen(false);
+    setIsEndingSession(true);
+
+    try {
+      console.log('Ending session with rating:', rating);
+      
+      const result = await sessionService.endSession(sessionId, rating);
+      console.log('Session end result:', result);
+
+      if (result.status === 'completed') {
+        // 피드백 페이지로 이동
+        navigate(`/feedback/${sessionId}`);
+      } else {
+        // 피드백 생성 실패
+        alert('피드백 생성에 실패했습니다. 다시 시도해주세요.');
+        setIsEndingSession(false);
+      }
+    } catch (error) {
+      console.error('Failed to end session:', error);
+      alert('세션 종료 중 오류가 발생했습니다.');
+      setIsEndingSession(false);
     }
   };
 
@@ -235,28 +258,36 @@ export const ChatPage: React.FC = () => {
   };
 
   return (
-    <AppLayout
-      messages={chatState.messages}
-      chatHistories={chatHistories}
-      currentChatId={sessionId || null}
-      isWaitingForResponse={chatState.isWaitingForResponse}
-      inputValue={inputValue}
-      onInputChange={setInputValue}
-      onSendMessage={handleSendMessage}
-      onNewChat={handleNewChat}
-      onSelectChat={handleSelectChat}
-      onSettings={handleSettings}
-      onSelectScenario={() => {}}
-      onCustomCreate={() => {}}
-      showScenarioSetup={false}
-      personaName={personaName}
-      difficulty={difficulty}
-      useSupervisor={useSupervisor}
-      onDifficultyChange={handleDifficultyChange}
-      onSupervisorToggle={handleSupervisorToggle}
-      onEndChat={handleEndChat}
-      isLoading={isLoading}
-      // ❌ showFeedback, feedbackData props 제거
-    />
+    <>
+      <AppLayout
+        messages={chatState.messages}
+        chatHistories={chatHistories}
+        currentChatId={sessionId || null}
+        isWaitingForResponse={chatState.isWaitingForResponse}
+        inputValue={inputValue}
+        onInputChange={setInputValue}
+        onSendMessage={handleSendMessage}
+        onNewChat={handleNewChat}
+        onSelectChat={handleSelectChat}
+        onSettings={handleSettings}
+        onSelectScenario={() => {}}
+        onCustomCreate={() => {}}
+        showScenarioSetup={false}
+        personaName={personaName}
+        difficulty={difficulty}
+        useSupervisor={useSupervisor}
+        onDifficultyChange={handleDifficultyChange}
+        onSupervisorToggle={handleSupervisorToggle}
+        onEndChat={handleEndChat}
+        isLoading={isLoading || isEndingSession} // ✅ 세션 종료 중에도 로딩 표시
+      />
+
+      {/* ✅ 평가 모달 */}
+      <RatingModal
+        isOpen={isRatingModalOpen}
+        onClose={() => setIsRatingModalOpen(false)}
+        onSubmit={handleRatingSubmit}
+      />
+    </>
   );
 };
