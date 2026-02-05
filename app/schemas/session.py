@@ -88,6 +88,7 @@ class SessionDifficultyUpdate(BaseModel):
 
 class SessionEndRequest(BaseModel):
     """세션 종료 요청"""
+    user_id: str = Field(..., description="사용자 ID")
     user_rating: Optional[int] = Field(None, ge=1, le=5, description="사용자 평점 (1-5)")
 
 

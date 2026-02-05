@@ -58,31 +58,15 @@ class SessionService:
         offset: int = 0,
         status_filter: str = None
     ) -> List[ChatSession]:
-        """
-        사용자의 세션 목록 조회
-        
-        Args:
-            user_id: 사용자 ID
-            db: 데이터베이스 세션
-            limit: 최대 개수 (기본 20개)
-            offset: 시작 위치 (페이징)
-            status_filter: 상태 필터 ('active', 'completed', None=전체)
-            
-        Returns:
-            세션 목록 (최신순)
-        """
+        """사용자의 세션 목록 조회"""
         query = db.query(ChatSession).filter(
             ChatSession.user_id == user_id
         )
         
-        # 상태 필터
         if status_filter:
             query = query.filter(ChatSession.status == status_filter)
         
-        # 최신순 정렬
         query = query.order_by(ChatSession.created_at.desc())
-        
-        # 페이징
         query = query.offset(offset).limit(limit)
         
         return query.all()
@@ -94,17 +78,7 @@ class SessionService:
         db: Session,
         status_filter: str = None
     ) -> int:
-        """
-        사용자의 총 세션 수 조회
-        
-        Args:
-            user_id: 사용자 ID
-            db: 데이터베이스 세션
-            status_filter: 상태 필터
-            
-        Returns:
-            총 세션 수
-        """
+        """사용자의 총 세션 수 조회"""
         query = db.query(ChatSession).filter(
             ChatSession.user_id == user_id
         )
@@ -124,6 +98,37 @@ class SessionService:
         
         if session.status != "active":
             raise ValueError(f"Session is not active: {session.status}")
+        
+        return session
+    
+    # ✅ 신규: 세션 소유권 검증
+    @staticmethod
+    def validate_session_ownership(
+        session_id: str, 
+        user_id: str, 
+        db: Session
+    ) -> ChatSession:
+        """
+        세션 소유권 검증 (session_id + user_id)
+        
+        Args:
+            session_id: 세션 ID
+            user_id: 사용자 ID
+            db: DB 세션
+            
+        Returns:
+            ChatSession 객체
+            
+        Raises:
+            ValueError: 세션이 없거나 소유자가 다른 경우
+        """
+        session = SessionService.get_session(session_id, db)
+        
+        if not session:
+            raise ValueError(f"Session not found: {session_id}")
+        
+        if session.user_id != user_id:
+            raise ValueError(f"Unauthorized: User {user_id} does not own session {session_id}")
         
         return session
     

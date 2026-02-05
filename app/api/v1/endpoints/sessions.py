@@ -85,7 +85,7 @@ async def get_user_sessions(
         SessionListItem(
             session_id=s.session_id,
             persona_name=s.persona_name,
-            role_description=s.role_description,  # ✅ 추가
+            role_description=s.role_description,
             difficulty=s.difficulty,
             status=s.status,
             created_at=s.created_at,
@@ -101,19 +101,26 @@ async def get_user_sessions(
     }
 
 
-
 @router.get("/{session_id}", response_model=SessionResponse)
 async def get_session(
     session_id: str,
+    user_id: str = Query(..., description="사용자 ID"),
     db: Session = Depends(get_db)
 ):
-    """세션 상세 정보 조회"""
-    session = SessionService.get_session(session_id, db)
+    """
+    세션 상세 정보 조회
     
-    if not session:
+    - **session_id**: 세션 ID
+    - **user_id**: 사용자 ID (소유권 검증)
+    """
+    
+    # 소유권 검증
+    try:
+        session = SessionService.validate_session_ownership(session_id, user_id, db)
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
         )
     
     return SessionResponse.model_validate(session)
@@ -122,6 +129,7 @@ async def get_session(
 @router.get("/{session_id}/messages", response_model=ConversationHistoryResponse)
 async def get_session_messages(
     session_id: str,
+    user_id: str = Query(..., description="사용자 ID"),
     limit: int = Query(default=100, ge=1, le=500, description="최대 개수"),
     offset: int = Query(default=0, ge=0, description="시작 위치"),
     db: Session = Depends(get_db)
@@ -130,6 +138,7 @@ async def get_session_messages(
     세션의 대화 기록 조회
     
     - **session_id**: 세션 ID (필수)
+    - **user_id**: 사용자 ID (소유권 검증)
     - **limit**: 최대 메시지 개수 (기본 100, 최대 500)
     - **offset**: 시작 위치 (페이징)
     
@@ -137,21 +146,20 @@ async def get_session_messages(
         세션의 전체 대화 기록 (시간순, role별)
     """
     
-    # 1. 세션 존재 확인
-    session = SessionService.get_session(session_id, db)
-    
-    if not session:
+    # 1. 소유권 검증
+    try:
+        session = SessionService.validate_session_ownership(session_id, user_id, db)
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
         )
     
-    # 2. 메시지 조회 (✅ timestamp + role 순서로 정렬)
+    # 2. 메시지 조회 (timestamp + role 순서로 정렬)
     messages = db.query(Message).filter(
         Message.session_id == session_id
     ).order_by(
         Message.timestamp.asc(),
-        # ✅ case 사용 (db.case → case)
         case(
             (Message.role == 'system', 1),
             (Message.role == 'user', 2),
@@ -181,7 +189,7 @@ async def get_session_messages(
     return {
         "session_id": session_id,
         "persona_name": session.persona_name,
-        "role_description": session.role_description,  # ✅ 추가
+        "role_description": session.role_description,
         "difficulty": session.difficulty,
         "status": session.status,
         "total_messages": total_messages,
@@ -192,30 +200,38 @@ async def get_session_messages(
 @router.patch("/{session_id}/difficulty", response_model=SessionResponse)
 async def update_session_difficulty(
     session_id: str,
-    update_data: SessionDifficultyUpdate,
+    update_data: SessionDifficultyUpdate,  # ✅ 먼저
+    user_id: str = Query(..., description="사용자 ID"),  # ✅ 나중에
     db: Session = Depends(get_db)
 ):
     """
     세션의 난이도 수정
     
     - **session_id**: 세션 ID (필수)
+    - **user_id**: 사용자 ID (소유권 검증)
     - **difficulty**: 새로운 난이도 (1: 쉬움, 2: 보통, 3: 어려움)
     
     활성 상태의 세션만 수정 가능합니다.
     """
+    
+    # 소유권 검증
     try:
-        session = SessionService.update_difficulty(
-            session_id=session_id,
-            new_difficulty=update_data.difficulty,
-            db=db
-        )
-        return SessionResponse.model_validate(session)
-        
+        session = SessionService.validate_session_ownership(session_id, user_id, db)
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e)
         )
+    
+    # 난이도 수정
+    session.difficulty = update_data.difficulty
+    session.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(session)
+    
+    print(f"🔧 난이도 변경: {session_id} -> {update_data.difficulty}")
+    
+    return SessionResponse.model_validate(session)
 
 
 @router.post("/{session_id}/end", response_model=SessionEndResponse)
@@ -224,17 +240,25 @@ async def end_session(
     end_request: SessionEndRequest,
     db: Session = Depends(get_db)
 ):
-    """세션 종료 및 최종 피드백 생성"""
+    """
+    세션 종료 및 최종 피드백 생성
     
-    # 1. 세션 조회
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
+    - **session_id**: 세션 ID
+    - **user_id**: 요청 본문에 포함 (소유권 검증)
+    - **user_rating**: 사용자 평가 (1-5, 선택)
+    """
     
-    if not session:
+    # 1. 소유권 검증
+    try:
+        session = SessionService.validate_session_ownership(
+            session_id=session_id,
+            user_id=end_request.user_id,
+            db=db
+        )
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
         )
     
     if session.status != "active":
@@ -253,6 +277,8 @@ async def end_session(
     
     # 3. 피드백 생성 (AI 서버 호출)
     feedback_generated = False
+    error_message = None
+    
     try:
         feedback_data = await FeedbackService.generate_feedback(session_id)
         
@@ -289,7 +315,7 @@ async def end_session(
             next_homework=next_action.get("homework", []),
             # 메타데이터
             generated_at=datetime.utcnow(),
-            raw_response=feedback_data  # 원본 응답 저장
+            raw_response=feedback_data
         )
         
         db.add(feedback)
@@ -299,15 +325,18 @@ async def end_session(
         print(f"✅ 피드백 DB 저장 완료 - session_id: {session_id}")
         
     except Exception as e:
-        print(f"⚠️ 피드백 생성 실패 (세션은 종료됨) - {str(e)}")
-        # 피드백 생성 실패해도 세션 종료는 완료됨
+        error_message = str(e)
+        print(f"⚠️ 피드백 생성 실패 (세션은 종료됨)")
+        print(f"   Error: {error_message}")
     
     # 5. FE로 응답
+    message = "Session ended successfully" if feedback_generated else f"Session ended but feedback generation failed: {error_message}"
+    
     return {
         "session_id": session_id,
         "status": session.status,
         "ended_at": session.ended_at,
-        "message": "Session ended successfully" if feedback_generated else "Session ended but feedback generation failed",
+        "message": message,
         "feedback_generated": feedback_generated
     }
 
@@ -315,34 +344,32 @@ async def end_session(
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_session(
     session_id: str,
+    user_id: str = Query(..., description="사용자 ID"),
     db: Session = Depends(get_db)
 ):
     """
     세션 삭제
     
     - **session_id**: 세션 ID (필수)
+    - **user_id**: 사용자 ID (소유권 검증)
     
     세션과 관련된 모든 데이터(메시지, 피드백)가 함께 삭제됩니다.
     """
     
-    # 1. 세션 조회
-    session = db.query(ChatSession).filter(
-        ChatSession.session_id == session_id
-    ).first()
-    
-    if not session:
+    # 1. 소유권 검증
+    try:
+        session = SessionService.validate_session_ownership(session_id, user_id, db)
+    except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
         )
     
-    # 2. 관련 데이터 삭제 (Foreign Key로 CASCADE 설정되어 있으면 자동 삭제)
-    # messages 삭제
+    # 2. 관련 데이터 삭제 (CASCADE 설정되어 있으면 자동 삭제)
     db.query(Message).filter(
         Message.session_id == session_id
     ).delete()
     
-    # feedback 삭제
     db.query(SessionFeedback).filter(
         SessionFeedback.session_id == session_id
     ).delete()
@@ -353,5 +380,4 @@ async def delete_session(
     
     print(f"✅ 세션 삭제 완료 - session_id: {session_id}")
     
-    # 204 No Content (응답 본문 없음)
     return

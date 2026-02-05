@@ -24,23 +24,26 @@ async def send_message(
     request: AgentRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    에이전트에게 메시지 전송 및 응답 받기
+    """에이전트에게 메시지 전송 및 응답 받기"""
     
-    - **session_id**: 세션 ID (필수)
-    - **message**: 사용자 메시지
-    - **use_supervisor**: Supervisor 검수 사용 여부
-    
-    persona 정보는 세션 DB에서 자동 조회됩니다.
-    """
-    
-    # 1. 세션 유효성 검증 및 조회
+    # ✅ 1. 세션 소유권 검증
     try:
-        session = SessionService.validate_session(request.session_id, db)
+        session = SessionService.validate_session_ownership(
+            session_id=request.session_id,
+            user_id=request.user_id,
+            db=db
+        )
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e)
+        )
+    
+    # ✅ 2. 활성 상태 확인
+    if session.status != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Session is not active (status: {session.status})"
         )
     
     # 2. DB에서 persona 정보 가져오기
@@ -166,21 +169,18 @@ async def start_session(
     request: SessionStartRequest,
     db: Session = Depends(get_db)
 ):
-    """
-    세션 시작 - AI가 먼저 말을 건다
+    """세션 시작 - AI가 먼저 말을 건다"""
     
-    - **session_id**: 세션 ID (필수)
-    - **use_supervisor**: Supervisor 검수 사용 여부
-    
-    persona 정보는 세션 DB에서 자동 조회됩니다.
-    """
-    
-    # 1. 세션 유효성 검증 및 조회
+    # ✅ 1. 세션 소유권 검증
     try:
-        session = SessionService.validate_session(request.session_id, db)
+        session = SessionService.validate_session_ownership(
+            session_id=request.session_id,
+            user_id=request.user_id,
+            db=db
+        )
     except ValueError as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e)
         )
     

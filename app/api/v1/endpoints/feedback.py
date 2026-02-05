@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
@@ -13,6 +13,7 @@ from app.schemas.feedback import (
     NextActionGuide
 )
 from app.api.v1.services.feedback_service import FeedbackService
+from app.api.v1.services.session_service import SessionService
 
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
@@ -21,16 +22,16 @@ router = APIRouter(prefix="/feedback", tags=["feedback"])
 @router.get("/{session_id}", response_model=FeedbackResponse)
 async def get_session_feedback(
     session_id: str,
+    user_id: str = Query(..., description="사용자 ID"),  # ✅ 추가
     db: Session = Depends(get_db)
 ):
-    """
-    세션 피드백 조회
+    """세션 피드백 조회"""
     
-    - **session_id**: 세션 ID
-    
-    Returns:
-        세션의 피드백 내용 (raw_response 제외)
-    """
+    # ✅ 소유권 검증
+    try:
+        session = SessionService.validate_session_ownership(session_id, user_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
     
     # 1. DB에서 피드백 조회
     feedback = db.query(SessionFeedback).filter(
