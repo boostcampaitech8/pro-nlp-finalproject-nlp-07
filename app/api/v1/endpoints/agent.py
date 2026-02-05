@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Optional
 
+
 from app.db.database import get_db
 from app.models.message import Message
 from app.models.session import ChatSession
@@ -13,6 +14,9 @@ from app.api.v1.services.session_service import SessionService
 
 
 router = APIRouter(prefix="/agent", tags=["agent"])
+
+# ✅ 코치 개입 제어 설정 (필요시 조정)
+COACH_COOLDOWN_MESSAGES = 6  # 코치 메시지 후 최소 N개 메시지 대기
 
 
 @router.post("", response_model=AgentResponse)
@@ -67,13 +71,36 @@ async def send_message(
         print(f"  - rewrite: {coach_data.get('rewrite')}")
         print(f"  - signals: {coach_data.get('signals')}")
     
-    # 4. 메시지 저장 (role별로 분리, 순서 보장)
+    # ✅ 4. 코치 개입 제어 로직
+    coach_should_intervene = False
+    
+    if coach_data and coach_data.get("intervene"):
+        print(f"🎓 코치 개입 감지됨")
+        
+        # 최근 N개 메시지 조회
+        recent_messages = db.query(Message).filter(
+            Message.session_id == request.session_id
+        ).order_by(
+            Message.timestamp.desc()
+        ).limit(COACH_COOLDOWN_MESSAGES).all()
+        
+        # 최근 메시지 중 코치가 있는지 확인
+        has_recent_coach = any(msg.role == "coach" for msg in recent_messages)
+        
+        if has_recent_coach:
+            print(f"⏸️ 코치 개입 스킵 (최근 {COACH_COOLDOWN_MESSAGES}개 메시지 내 코치 존재)")
+            coach_should_intervene = False
+        else:
+            print(f"✅ 코치 개입 허용 (최근 {COACH_COOLDOWN_MESSAGES}개 메시지 내 코치 없음)")
+            coach_should_intervene = True
+    
+    # 5. 메시지 저장 (role별로 분리, 순서 보장)
     base_message_id = f"msg_{uuid.uuid4().hex[:12]}"
     base_timestamp = datetime.utcnow()
     
     messages_to_save = []
     
-    # ✅ 4-1. User 메시지 저장 (timestamp: base)
+    # ✅ 5-1. User 메시지 저장 (timestamp: base)
     user_message = Message(
         message_id=f"{base_message_id}_user",
         session_id=request.session_id,
@@ -86,8 +113,8 @@ async def send_message(
     )
     messages_to_save.append(user_message)
     
-    # ✅ 4-2. Coach 메시지 저장 (timestamp: base + 1ms, intervene=True일 때만)
-    if coach_data and coach_data.get("intervene"):
+    # ✅ 5-2. Coach 메시지 저장 (조건부: coach_should_intervene=True일 때만)
+    if coach_should_intervene:
         coach_content = coach_data.get("rewrite", "")
         coach_signals = coach_data.get("signals", [])
         
@@ -103,8 +130,9 @@ async def send_message(
             }
         )
         messages_to_save.append(coach_message)
+        print(f"🎓 코치 메시지 저장: {coach_content[:50]}...")
     
-    # ✅ 4-3. Persona 메시지 저장 (timestamp: base + 2ms)
+    # ✅ 5-3. Persona 메시지 저장 (timestamp: base + 2ms)
     persona_message = Message(
         message_id=f"{base_message_id}_persona",
         session_id=request.session_id,
@@ -120,16 +148,16 @@ async def send_message(
     # 일괄 저장
     db.add_all(messages_to_save)
     
-    # 5. 세션 메시지 카운트 증가
+    # 6. 세션 메시지 카운트 증가
     SessionService.increment_message_count(session, db)
     
     db.commit()
     
-    # 프론트엔드로 반환
+    # ✅ 7. 프론트엔드로 반환 (코치 개입 스킵된 경우 None)
     return {
         "response": agent_response_text,
         "success": True,
-        "coach": coach_data
+        "coach": coach_data if coach_should_intervene else None
     }
 
 
