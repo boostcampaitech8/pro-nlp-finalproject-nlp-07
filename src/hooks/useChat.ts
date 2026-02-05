@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Message, Chat } from '../types';
-
+ 
 interface UseChatReturn {
   messages: Message[];
   chatHistories: Chat[];
