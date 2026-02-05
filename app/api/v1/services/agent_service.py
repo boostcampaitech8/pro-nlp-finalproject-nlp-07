@@ -185,6 +185,73 @@ class AgentService:
                 "text": f"[{persona_name}] 안녕하세요!",
                 "session_id": session_id
             }
+
+    @staticmethod
+    async def get_feedback(session_id: str) -> Dict[str, Any]:
+        """
+        세션 피드백 생성 요청
+        
+        Args:
+            session_id: 세션 ID
+            
+        Returns:
+            피드백 응답 데이터
+            {
+                "session_id": "sess_xxx",
+                "final_feedback": {
+                    "user_profile": {...},
+                    "conversation_summary": "...",
+                    "feedback": {...}
+                }
+            }
+        """
+        
+        api_url = f"{AGENT_API_HOST}{AgentService.ENDPOINTS['feedback']}"
+        
+        print(f"🎯 Feedback API 호출: {api_url}")
+        print(f"   Session ID: {session_id}")
+        
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    api_url,
+                    json={
+                        "session_id": session_id
+                    },
+                    headers={
+                        "Authorization": f"Bearer {AGENT_API_KEY}",
+                        "Content-Type": "application/json"
+                    }
+                )
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                print(f"✅ Feedback API 응답 수신")
+                
+                # 응답 검증
+                if not isinstance(data, dict) or "final_feedback" not in data:
+                    print(f"⚠️ 예상치 못한 응답 형식: {data}")
+                    raise ValueError("Invalid feedback response format")
+                
+                return data
+                
+        except httpx.TimeoutException:
+            print(f"❌ Feedback API 타임아웃 (60초 초과): {api_url}")
+            raise Exception("Feedback API timeout after 60 seconds")
+            
+        except httpx.HTTPStatusError as e:
+            print(f"❌ Feedback API HTTP 에러 {e.response.status_code}")
+            print(f"   Response: {e.response.text}")
+            raise Exception(f"Feedback API returned status {e.response.status_code}: {e.response.text}")
+            
+        except httpx.RequestError as e:
+            print(f"❌ Feedback API 연결 실패: {api_url} - {e}")
+            raise Exception(f"Failed to connect to Feedback API: {str(e)}")
+            
+        except Exception as e:
+            print(f"❌ Feedback API 예상치 못한 오류: {e}")
+            raise
     
     @staticmethod
     async def test_connection(endpoint: Optional[str] = None) -> Dict[str, Any]:

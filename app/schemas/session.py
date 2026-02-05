@@ -91,6 +91,15 @@ class SessionEndRequest(BaseModel):
     user_rating: Optional[int] = Field(None, ge=1, le=5, description="사용자 평점 (1-5)")
 
 
+class SessionEndResponse(BaseModel):
+    """세션 종료 응답"""
+    session_id: str
+    status: str
+    ended_at: datetime
+    message: str
+    feedback_generated: bool
+
+
 class SessionStatistics(BaseModel):
     """세션 통계"""
     total_messages: int
@@ -106,14 +115,6 @@ class FeedbackDetailInline(BaseModel):
     summary: str = Field(..., description="종합 요약")
     generated_at: datetime
 
-
-class SessionEndResponse(BaseModel):
-    """세션 종료 응답"""
-    session_id: str
-    status: str
-    ended_at: datetime
-    feedback: FeedbackDetailInline
-    statistics: SessionStatistics
 
 class MessageItem(BaseModel):
     """메시지 아이템 (role별 구조)"""

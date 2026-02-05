@@ -6,7 +6,7 @@ from typing import Optional
 
 from app.db.database import get_db
 from app.models.session import ChatSession
-from app.models.message import Message  # ✅ 변경
+from app.models.message import Message
 from app.models.feedback import SessionFeedback
 from app.schemas.session import (
     SessionCreate,
@@ -243,60 +243,72 @@ async def end_session(
             detail=f"Session already ended with status: {session.status}"
         )
     
-    # 2. 대화 내역 가져오기 (✅ Message 모델 사용)
-    messages = db.query(Message).filter(
-        Message.session_id == session_id
-    ).order_by(Message.timestamp).all()
-    
-    if not messages:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot end session without any messages"
-        )
-    
-    # 3. 피드백 생성
-    feedback_data = FeedbackService.generate_feedback(session, messages)
-    
-    # 4. 통계 계산
-    duration = (datetime.utcnow() - session.created_at).total_seconds() / 60
-    
-    # 5. 세션 종료
+    # 2. 세션 종료 처리
     session.status = "completed"
     session.ended_at = datetime.utcnow()
     session.user_rating = end_request.user_rating
-    
-    # 6. 피드백 저장
-    feedback = SessionFeedback(
-        session_id=session_id,
-        overall_score=feedback_data["score"],
-        strengths=feedback_data["strengths"],
-        improvements=feedback_data["improvements"],
-        summary=feedback_data["summary"],
-        generated_at=datetime.utcnow()
-    )
-    
-    db.add(feedback)
     db.commit()
-    db.refresh(session)
-    db.refresh(feedback)
     
-    # 7. 응답 구성
+    print(f"✅ 세션 종료 처리 완료 - session_id: {session_id}")
+    
+    # 3. 피드백 생성 (AI 서버 호출)
+    feedback_generated = False
+    try:
+        feedback_data = await FeedbackService.generate_feedback(session_id)
+        
+        # 4. 피드백 DB 저장
+        final_feedback = feedback_data.get("final_feedback", {})
+        user_profile = final_feedback.get("user_profile", {})
+        feedback_detail = final_feedback.get("feedback", {})
+        situation_eval = feedback_detail.get("situation_response_evaluation", {})
+        expression_eval = feedback_detail.get("sentence_expression_evaluation", {})
+        next_action = feedback_detail.get("next_action_guide", {})
+        
+        feedback = SessionFeedback(
+            session_id=session_id,
+            # 사용자 프로필
+            user_traits=user_profile.get("traits", []),
+            user_tendencies=user_profile.get("tendencies", []),
+            user_risk_signals=user_profile.get("risk_signals", []),
+            # 대화 요약
+            conversation_summary=final_feedback.get("conversation_summary", ""),
+            # 사용자 경향 요약
+            user_tendency_summary=feedback_detail.get("user_tendency_summary", ""),
+            # 상황 대응 평가
+            situation_score=situation_eval.get("score"),
+            situation_good_points=situation_eval.get("good_points", []),
+            situation_improve_points=situation_eval.get("improve_points", []),
+            situation_notes=situation_eval.get("notes", ""),
+            # 문장 표현 평가
+            expression_good_points=expression_eval.get("good_points", []),
+            expression_improve_points=expression_eval.get("improve_points", []),
+            expression_rewrite_examples=expression_eval.get("rewrite_examples", []),
+            # 다음 액션 가이드
+            next_copyable_lines=next_action.get("copyable_lines", []),
+            next_drills=next_action.get("next_drills", []),
+            next_homework=next_action.get("homework", []),
+            # 메타데이터
+            generated_at=datetime.utcnow(),
+            raw_response=feedback_data  # 원본 응답 저장
+        )
+        
+        db.add(feedback)
+        db.commit()
+        
+        feedback_generated = True
+        print(f"✅ 피드백 DB 저장 완료 - session_id: {session_id}")
+        
+    except Exception as e:
+        print(f"⚠️ 피드백 생성 실패 (세션은 종료됨) - {str(e)}")
+        # 피드백 생성 실패해도 세션 종료는 완료됨
+    
+    # 5. FE로 응답
     return {
         "session_id": session_id,
         "status": session.status,
         "ended_at": session.ended_at,
-        "feedback": {
-            "overall_score": feedback.overall_score,
-            "strengths": feedback.strengths,
-            "improvements": feedback.improvements,
-            "summary": feedback.summary,
-            "generated_at": feedback.generated_at
-        },
-        "statistics": {
-            "total_messages": len(messages),
-            "duration_minutes": int(duration),
-            "average_response_time_seconds": 0.0
-        }
+        "message": "Session ended successfully" if feedback_generated else "Session ended but feedback generation failed",
+        "feedback_generated": feedback_generated
     }
 
 
