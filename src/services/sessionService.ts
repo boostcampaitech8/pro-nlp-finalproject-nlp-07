@@ -41,6 +41,7 @@ interface SessionListItem {
   status: string;
   created_at: string;
   message_count: number;
+  role_description: string;
 }
 
 interface UserSessionsResponse {

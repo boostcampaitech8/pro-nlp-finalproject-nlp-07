@@ -12,7 +12,8 @@ export interface Chat {
   title: string;
   timestamp: Date;
   messageCount: number;
-  roleDescription: string;
+  roleDescription?: string;
+  messages?: Message[];
 }
 
 export interface ChatState {

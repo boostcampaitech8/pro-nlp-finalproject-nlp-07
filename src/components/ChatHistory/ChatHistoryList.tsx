@@ -4,8 +4,8 @@ import { ChatHistoryItem } from './ChatHistoryItem';
 
 interface ChatHistoryListProps {
   histories: Chat[];
-  currentChatId: number | null;
-  onSelectChat: (chatId: number) => void;
+  currentChatId: string | null;
+  onSelectChat: (chatId: string) => void;
 }
 
 export const ChatHistoryList: React.FC<ChatHistoryListProps> = ({

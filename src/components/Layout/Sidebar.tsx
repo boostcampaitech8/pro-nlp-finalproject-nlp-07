@@ -14,7 +14,6 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   chatHistories,
   currentChatId,
-  onSelectChat,
 }) => {
   const navigate = useNavigate();
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);

@@ -4,7 +4,7 @@ import type { Chat } from '../../types';
 interface ChatHistoryItemProps {
   chat: Chat;
   isActive: boolean;
-  onClick: (chatId: number) => void;
+  onClick: (chatId: string) => void;
 }
 
 export const ChatHistoryItem: React.FC<ChatHistoryItemProps> = ({
