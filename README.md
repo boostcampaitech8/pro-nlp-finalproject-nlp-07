@@ -44,8 +44,7 @@ ai/
 ├── coach_eval/                 # 모델 성능 평가 및 메트릭 측정
 │   ├── eval_base_metrics.py    # Base 모델(학습 전) 성능 측정 비교군
 │   ├── eval_v10_metrics.py     # V10 모델(Judge+Coach) 최종 성능 평가
-│   ├── judge_score_eval.py     # Judge Adapter(개입 판단) 정확도 전용 
-평가
+│   ├── judge_score_eval.py     # Judge Adapter(개입 판단) 정확도 전용 평가
 │ 
 │   └── judge_prompt.txt        # 평가에 사용되는 Judge 프롬프트 템플릿
 ├── tests/
@@ -160,23 +159,17 @@ Mind Gym의 대화 처리는 단순 1:1 응답이 아니라, 여러 에이전트
 ### 1. Coach Model Training (coach_train/)
 Mind Gym의 핵심인 Coach 모델은 Multi-LoRA 아키텍처를 사용하여 train.py를 통해 학습된다.
 
-Base Model: unsloth/Qwen2.5-14B-Instruct-bnb-4bit
-
-
-Masking Strategy: input에는 -100으로 masking을 적용하고 모델의 출력값인 intervene, reason, coach_feedback에만 Loss를 계산하여 효율적인 학습을 진행함.
-
-
-Social Self-Defense: "사회적 지능(Social Intelligence)"과 "품격 있는 호신술"을 가르치는 페르소나 적용.
+- `Base Model`: unsloth/Qwen2.5-14B-Instruct-bnb-4bit
+- `Masking Strategy`: input에는 -100으로 masking을 적용하고 모델의 출력값인 intervene, reason, coach_feedback에만 Loss를 계산하여 효율적인 학습을 진행함.
+- `Social Self-Defense`: "사회적 지능(Social Intelligence)"과 "품격 있는 호신술"을 가르치는 페르소나 적용.
 
 
 ### 2. Model Evaluation (coach_eval/)
 학습된 모델의 성능을 정량적으로 검증하기 위한 모듈이다.
 
-eval_v10_metrics.py: 학습된 V10 모델이 개입 여부(Intervene True/False)를 얼마나 정확하게 맞추는지(Accuracy/F1-score) 별도 측정.
-
-judge_score_eval.py: gpt-4.1-mini 모델을 LLM-Judge로 사용한 루드릭 채점을 시행함. (루드릭 채점의 기준은 judge_prompt.txt 참고)
-
-eval_base_metrics.py: 학습되지 않은 Base 모델과의 Intervene 성능 비교를 위한 기준점 마련.
+- `eval_v10_metrics.py`: 학습된 V10 모델이 개입 여부(Intervene True/False)를 얼마나 정확하게 맞추는지(Accuracy/F1-score) 별도 측정.
+- `judge_score_eval.py`: gpt-4.1-mini 모델을 LLM-Judge로 사용한 루드릭 채점을 시행함. (루드릭 채점의 기준은 judge_prompt.txt 참고)
+- `eval_base_metrics.py`: 학습되지 않은 Base 모델과의 Intervene 성능 비교를 위한 기준점 마련.
 
 
 ## Status
