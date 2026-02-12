@@ -173,6 +173,6 @@ Mind Gym의 핵심인 Coach 모델은 Multi-LoRA 아키텍처를 사용하여 tr
 
 
 ## Status
-- Coach 모델 연동 및 E2E 실행 검증 완료
+- Coach 모델 학습, 연동 및 E2E 실행 검증 완료
 - Multi-Agent 대화 흐름 정상 동작 확인
 - 피드백 품질/평가 기준 고도화는 별도 이슈로 관리 예정
